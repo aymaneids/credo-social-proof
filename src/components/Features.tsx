@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 const Features = () => {
+  const navigate = useNavigate();
   const features = [
     {
       icon: "🔗",
@@ -60,7 +62,7 @@ const Features = () => {
         </div>
         
         <div className="text-center">
-          <Button variant="hero" size="lg" className="text-lg px-12 py-6">
+          <Button variant="hero" size="lg" className="text-lg px-12 py-6" onClick={() => navigate("/login")}>
             Start Building Social Proof Today
           </Button>
           <p className="text-sm text-muted-foreground mt-4">
