@@ -4,6 +4,7 @@ import ProblemSolution from "@/components/ProblemSolution";
 import Features from "@/components/Features";
 import SocialProof from "@/components/SocialProof";
 import CTA from "@/components/CTA";
+import Footer from "@/components/Footer";
 
 const Index = () => {
   return (
@@ -16,6 +17,7 @@ const Index = () => {
         <SocialProof />
         <CTA />
       </main>
+      <Footer />
     </div>
   );
 };
