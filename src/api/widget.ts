@@ -1,3 +1,4 @@
+
 import { Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 
@@ -62,12 +63,10 @@ export const trackWidgetView = async (req: Request, res: Response) => {
   try {
     const { widgetId } = req.params;
     
-    const { error } = await supabase
-      .from('widgets')
-      .update({ 
-        views_count: supabase.sql`views_count + 1` 
-      })
-      .eq('id', widgetId);
+    // Use RPC call instead of supabase.sql
+    const { error } = await supabase.rpc('increment_widget_views', {
+      widget_id: widgetId
+    });
     
     if (error) {
       console.error('Error tracking widget view:', error);
@@ -84,12 +83,10 @@ export const trackWidgetClick = async (req: Request, res: Response) => {
   try {
     const { widgetId } = req.params;
     
-    const { error } = await supabase
-      .from('widgets')
-      .update({ 
-        clicks_count: supabase.sql`clicks_count + 1` 
-      })
-      .eq('id', widgetId);
+    // Use RPC call instead of supabase.sql
+    const { error } = await supabase.rpc('increment_widget_clicks', {
+      widget_id: widgetId
+    });
     
     if (error) {
       console.error('Error tracking widget click:', error);

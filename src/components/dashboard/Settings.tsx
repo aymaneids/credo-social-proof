@@ -1,99 +1,71 @@
-import React, { useState } from 'react';
-import { User, CreditCard, Key, Bell, Shield, Download, Trash2, CheckCircle, XCircle, Loader } from 'lucide-react';
+
+import React, { useState, useEffect } from 'react';
+import { User, Mail, Building, Globe, Key, Bell, Shield, Trash2, Save } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase, checkUsernameAvailability, validateUsernameFormat } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase';
+
+interface UserSettings {
+  first_name: string;
+  last_name: string;
+  email: string;
+  company: string;
+  website: string;
+  username: string;
+}
+
+interface NotificationSettings {
+  email_notifications: boolean;
+  browser_notifications: boolean;
+  weekly_reports: boolean;
+  marketing_emails: boolean;
+}
+
 const Settings: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('profile');
-  const { user } = useAuth();
-  const [userProfile, setUserProfile] = useState<any>(null);
-  const [usernameStatus, setUsernameStatus] = useState<{
-    checking: boolean;
-    available: boolean | null;
-    message: string;
-  }>({ checking: false, available: null, message: '' });
+  const { user, signOut } = useAuth();
+  const [userSettings, setUserSettings] = useState<UserSettings>({
+    first_name: '',
+    last_name: '',
+    email: '',
+    company: '',
+    website: '',
+    username: ''
+  });
+  const [notifications, setNotifications] = useState<NotificationSettings>({
+    email_notifications: true,
+    browser_notifications: true,
+    weekly_reports: true,
+    marketing_emails: false
+  });
   const [loading, setLoading] = useState(false);
 
-  // Load user profile data
-  React.useEffect(() => {
-    const loadUserProfile = async () => {
-      if (!user) return;
-      
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-        
-      if (!error && data) {
-        setUserProfile(data);
-      }
-    };
-    
-    loadUserProfile();
+  useEffect(() => {
+    if (user) {
+      setUserSettings(prev => ({
+        ...prev,
+        email: user.email || '',
+        first_name: user.user_metadata?.first_name || '',
+        last_name: user.user_metadata?.last_name || '',
+        company: user.user_metadata?.company || ''
+      }));
+    }
   }, [user]);
 
-  const handleUsernameChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const username = e.target.value.toLowerCase();
-    setUserProfile(prev => ({ ...prev, username }));
-    
-    if (username && username !== userProfile?.username) {
-      const formatValidation = validateUsernameFormat(username);
-      if (!formatValidation.valid) {
-        setUsernameStatus({
-          checking: false,
-          available: false,
-          message: formatValidation.message || 'Invalid format'
-        });
-        return;
-      }
-      
-      setUsernameStatus({ checking: true, available: null, message: 'Checking availability...' });
-      
-      try {
-        const { available, error } = await checkUsernameAvailability(username);
-        if (error) {
-          setUsernameStatus({
-            checking: false,
-            available: false,
-            message: 'Error checking availability'
-          });
-        } else {
-          setUsernameStatus({
-            checking: false,
-            available,
-            message: available ? `✅ ${username} is available!` : `❌ ${username} is already taken`
-          });
-        }
-      } catch (error) {
-        setUsernameStatus({
-          checking: false,
-          available: false,
-          message: 'Error checking availability'
-        });
-      }
-    } else {
-      setUsernameStatus({ checking: false, available: null, message: '' });
-    }
-  };
-
   const handleSaveProfile = async () => {
-    if (!user || !userProfile) return;
-    
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('users')
-        .update({
-          first_name: userProfile.first_name,
-          last_name: userProfile.last_name,
-          company: userProfile.company,
-          username: userProfile.username
-        })
-        .eq('id', user.id);
-        
+      // Update user metadata
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          first_name: userSettings.first_name,
+          last_name: userSettings.last_name,
+          company: userSettings.company,
+          website: userSettings.website
+        }
+      });
+
       if (error) throw error;
       
-      // Show success message or handle success
+      // You would also update the users table here if needed
       console.log('Profile updated successfully');
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -101,344 +73,209 @@ const Settings: React.FC = () => {
       setLoading(false);
     }
   };
-  const tabs = [
-    { id: 'profile', name: 'Profile', icon: User },
-    { id: 'billing', name: 'Billing', icon: CreditCard },
-    { id: 'api', name: 'API Keys', icon: Key },
-    { id: 'notifications', name: 'Notifications', icon: Bell },
-    { id: 'security', name: 'Security', icon: Shield },
-  ];
 
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'profile':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Profile Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-                  <input
-                    type="text"
-                    value={userProfile?.first_name || ''}
-                    onChange={(e) => setUserProfile(prev => ({ ...prev, first_name: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-                  <input
-                    type="text"
-                    value={userProfile?.last_name || ''}
-                    onChange={(e) => setUserProfile(prev => ({ ...prev, last_name: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                  <input
-                    type="email"
-                    value={user?.email || ''}
-                    disabled
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
-                  <p className="text-xs text-gray-500 mb-2">
-                    This will be your unique URL. Use only lowercase letters, numbers, and hyphens.
-                  </p>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={userProfile?.username || ''}
-                      onChange={handleUsernameChange}
-                      placeholder="your-username"
-                      className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      {usernameStatus.checking && <Loader className="w-4 h-4 text-gray-400 animate-spin" />}
-                      {!usernameStatus.checking && usernameStatus.available === true && <CheckCircle className="w-4 h-4 text-green-500" />}
-                      {!usernameStatus.checking && usernameStatus.available === false && <XCircle className="w-4 h-4 text-red-500" />}
-                    </div>
-                  </div>
-                  {usernameStatus.message && (
-                    <p className={`text-xs mt-1 ${
-                      usernameStatus.available === true ? 'text-green-600' : 
-                      usernameStatus.available === false ? 'text-red-600' : 'text-gray-500'
-                    }`}>
-                      {usernameStatus.message}
-                    </p>
-                  )}
-                  {userProfile?.username && (
-                    <p className="text-xs text-blue-600 mt-1">
-                      Your links will be: <span className="font-mono">credo.app/c/{userProfile.username}/link-name</span>
-                    </p>
-                  )}
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
-                  <input
-                    type="text"
-                    value={userProfile?.company || ''}
-                    onChange={(e) => setUserProfile(prev => ({ ...prev, company: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-              <button 
-                onClick={handleSaveProfile}
-                disabled={loading}
-                className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
-          </div>
-        );
-
-      case 'billing':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Current Plan</h3>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-semibold text-blue-900">Founder Plan</h4>
-                    <p className="text-blue-700">$9/month • Unlimited testimonials</p>
-                  </div>
-                  <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                    Manage Plan
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Method</h3>
-              <div className="bg-white border border-gray-200 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-gray-100 rounded flex items-center justify-center">
-                      <CreditCard className="w-4 h-4 text-gray-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">•••• •••• •••• 4242</p>
-                      <p className="text-sm text-gray-600">Expires 12/25</p>
-                    </div>
-                  </div>
-                  <button className="text-blue-600 hover:text-blue-700 font-medium">
-                    Update
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Billing History</h3>
-              <div className="space-y-2">
-                {[
-                  { date: '2024-01-01', amount: '$9.00', status: 'Paid' },
-                  { date: '2023-12-01', amount: '$9.00', status: 'Paid' },
-                  { date: '2023-11-01', amount: '$9.00', status: 'Paid' },
-                ].map((invoice, index) => (
-                  <div key={index} className="flex items-center justify-between py-2 border-b border-gray-200">
-                    <div>
-                      <span className="text-gray-900">{invoice.date}</span>
-                      <span className="text-gray-600 ml-4">{invoice.amount}</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-green-600 text-sm">{invoice.status}</span>
-                      <button className="text-blue-600 hover:text-blue-700 text-sm">
-                        Download
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'api':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">API Keys</h3>
-              <p className="text-gray-600 mb-4">
-                Use these keys to integrate Credo with your applications or third-party services.
-              </p>
-              
-              <div className="space-y-4">
-                <div className="bg-white border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium text-gray-900">Production Key</h4>
-                    <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-                      Regenerate
-                    </button>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <code className="flex-1 bg-gray-50 px-3 py-2 rounded text-sm font-mono">
-                      credo_live_sk_1234567890abcdef...
-                    </code>
-                    <button className="text-gray-600 hover:text-gray-900">
-                      <Key className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="bg-white border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium text-gray-900">Test Key</h4>
-                    <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-                      Regenerate
-                    </button>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <code className="flex-1 bg-gray-50 px-3 py-2 rounded text-sm font-mono">
-                      credo_test_sk_abcdef1234567890...
-                    </code>
-                    <button className="text-gray-600 hover:text-gray-900">
-                      <Key className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                Generate New Key
-              </button>
-            </div>
-          </div>
-        );
-
-      case 'notifications':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Email Notifications</h3>
-              <div className="space-y-4">
-                {[
-                  { name: 'New testimonial submissions', description: 'Get notified when someone submits a new testimonial' },
-                  { name: 'Weekly summary', description: 'Receive a weekly summary of your testimonial activity' },
-                  { name: 'Import completions', description: 'Get notified when social media imports are complete' },
-                  { name: 'Account updates', description: 'Important updates about your account and billing' },
-                ].map((notification, index) => (
-                  <div key={index} className="flex items-center justify-between py-3 border-b border-gray-200">
-                    <div>
-                      <h4 className="font-medium text-gray-900">{notification.name}</h4>
-                      <p className="text-sm text-gray-600">{notification.description}</p>
-                    </div>
-                    <input type="checkbox" defaultChecked className="rounded" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'security':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Password</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
-                  <input
-                    type="password"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
-                  <input
-                    type="password"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
-                  <input
-                    type="password"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                  Update Password
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Data Export</h3>
-              <p className="text-gray-600 mb-4">
-                Export all your testimonials and data in JSON format.
-              </p>
-              <button className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2">
-                <Download className="w-4 h-4" />
-                <span>Export Data</span>
-              </button>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-semibold text-red-900 mb-4">Danger Zone</h3>
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <h4 className="font-medium text-red-900 mb-2">Delete Account</h4>
-                <p className="text-red-700 text-sm mb-4">
-                  Once you delete your account, there is no going back. Please be certain.
-                </p>
-                <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2">
-                  <Trash2 className="w-4 h-4" />
-                  <span>Delete Account</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-
-      default:
-        return null;
+  const handleDeleteAccount = async () => {
+    if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+      try {
+        // In a real app, you'd call an API to delete the account
+        console.log('Account deletion requested');
+      } catch (error) {
+        console.error('Error deleting account:', error);
+      }
     }
   };
 
   return (
-    <div className="p-6">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-8">Settings</h1>
-        
-        <div className="flex flex-col md:flex-row gap-8">
-          {/* Sidebar */}
-          <div className="w-full md:w-64">
-            <nav className="space-y-1">
-              {tabs.map((tab) => {
-                const IconComponent = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      activeTab === tab.id
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                    }`}
-                  >
-                    <IconComponent className="w-5 h-5" />
-                    <span>{tab.name}</span>
-                  </button>
-                );
-              })}
-            </nav>
+    <div className="p-6 space-y-6 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 min-h-screen">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+          <User className="w-8 h-8 mr-3 text-blue-600" />
+          Settings
+        </h1>
+        <p className="text-gray-600 text-lg">Manage your account and preferences</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Profile Settings */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center space-x-3 mb-6">
+              <User className="w-5 h-5 text-gray-600" />
+              <h2 className="text-xl font-semibold text-gray-900">Profile Information</h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+                <input
+                  type="text"
+                  value={userSettings.first_name}
+                  onChange={(e) => setUserSettings(prev => ({ ...prev, first_name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                <input
+                  type="text"
+                  value={userSettings.last_name}
+                  onChange={(e) => setUserSettings(prev => ({ ...prev, last_name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+              <div className="relative">
+                <Mail className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
+                <input
+                  type="email"
+                  value={userSettings.email}
+                  onChange={(e) => setUserSettings(prev => ({ ...prev, email: e.target.value }))}
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  disabled
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Company</label>
+                <div className="relative">
+                  <Building className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    value={userSettings.company}
+                    onChange={(e) => setUserSettings(prev => ({ ...prev, company: e.target.value }))}
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Website</label>
+                <div className="relative">
+                  <Globe className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
+                  <input
+                    type="url"
+                    value={userSettings.website}
+                    onChange={(e) => setUserSettings(prev => ({ ...prev, website: e.target.value }))}
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="https://yourwebsite.com"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={handleSaveProfile}
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center space-x-2"
+              >
+                <Save className="w-4 h-4" />
+                <span>{loading ? 'Saving...' : 'Save Changes'}</span>
+              </button>
+            </div>
           </div>
 
-          {/* Content */}
-          <div className="flex-1">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              {renderTabContent()}
+          {/* Notification Settings */}
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center space-x-3 mb-6">
+              <Bell className="w-5 h-5 text-gray-600" />
+              <h2 className="text-xl font-semibold text-gray-900">Notification Preferences</h2>
             </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900">Email Notifications</h3>
+                  <p className="text-sm text-gray-500">Receive notifications about new testimonials</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={notifications.email_notifications}
+                  onChange={(e) => setNotifications(prev => ({ ...prev, email_notifications: e.target.checked }))}
+                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900">Browser Notifications</h3>
+                  <p className="text-sm text-gray-500">Show desktop notifications</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={notifications.browser_notifications}
+                  onChange={(e) => setNotifications(prev => ({ ...prev, browser_notifications: e.target.checked }))}
+                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900">Weekly Reports</h3>
+                  <p className="text-sm text-gray-500">Get weekly analytics summaries</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={notifications.weekly_reports}
+                  onChange={(e) => setNotifications(prev => ({ ...prev, weekly_reports: e.target.checked }))}
+                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900">Marketing Emails</h3>
+                  <p className="text-sm text-gray-500">Receive product updates and tips</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={notifications.marketing_emails}
+                  onChange={(e) => setNotifications(prev => ({ ...prev, marketing_emails: e.target.checked }))}
+                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* Account Security */}
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center space-x-3 mb-4">
+              <Shield className="w-5 h-5 text-gray-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Security</h3>
+            </div>
+            <div className="space-y-3">
+              <button className="w-full text-left p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div className="flex items-center space-x-3">
+                  <Key className="w-4 h-4 text-gray-600" />
+                  <span className="text-sm font-medium text-gray-900">Change Password</span>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Danger Zone */}
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-red-200">
+            <div className="flex items-center space-x-3 mb-4">
+              <Trash2 className="w-5 h-5 text-red-600" />
+              <h3 className="text-lg font-semibold text-red-900">Danger Zone</h3>
+            </div>
+            <p className="text-sm text-red-600 mb-4">
+              Once you delete your account, there is no going back. Please be certain.
+            </p>
+            <button
+              onClick={handleDeleteAccount}
+              className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            >
+              Delete Account
+            </button>
           </div>
         </div>
       </div>
