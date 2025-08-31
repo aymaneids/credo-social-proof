@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -224,7 +225,7 @@ export const useWidgets = () => {
 
     try {
       // First, ensure the user exists in the users table
-      const { data: existingUser, error: userCheckError } = await supabase
+      const { data, error: userCheckError } = await supabase
         .from('users')
         .select('id')
         .eq('id', user.id)
@@ -253,7 +254,7 @@ export const useWidgets = () => {
       const widgetId = crypto.randomUUID();
       const embedCode = `<script src="${window.location.origin}/widget/${widgetId}.js" async></script>`;
       
-      const { data, error } = await supabase
+      const { data: widgetData, error } = await supabase
         .from('widgets')
         .insert({
           id: widgetId,
@@ -271,9 +272,9 @@ export const useWidgets = () => {
 
       if (error) throw error;
 
-      setWidgets(prev => [data, ...prev]);
+      setWidgets(prev => [widgetData, ...prev]);
       
-      return data;
+      return widgetData;
     } catch (error) {
       console.error('Error creating widget:', error);
       throw error;

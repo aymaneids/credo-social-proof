@@ -17,18 +17,11 @@ import {
 } from 'recharts';
 import {
   TrendingUp,
-  Users,
   MessageSquare,
-  Clock,
   CheckCircle,
-  AlertCircle,
   Star,
   Activity,
-  ArrowDownRight,
-  BarChart3,
-  Globe,
-  Calendar,
-  Filter
+  BarChart3
 } from 'lucide-react';
 
 const Analytics: React.FC = () => {
@@ -59,16 +52,6 @@ const Analytics: React.FC = () => {
             Analytics
           </h1>
           <p className="text-gray-600 text-lg">Track your testimonial performance and engagement</p>
-        </div>
-        <div className="flex items-center space-x-3">
-          <button className="flex items-center space-x-2 px-4 py-2 bg-white rounded-lg border border-gray-200 hover:bg-gray-50">
-            <Calendar className="w-4 h-4" />
-            <span>Last 30 days</span>
-          </button>
-          <button className="flex items-center space-x-2 px-4 py-2 bg-white rounded-lg border border-gray-200 hover:bg-gray-50">
-            <Filter className="w-4 h-4" />
-            <span>Filter</span>
-          </button>
         </div>
       </div>
 
@@ -113,11 +96,11 @@ const Analytics: React.FC = () => {
               <p className="text-2xl font-bold text-gray-900">92</p>
             </div>
             <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <Clock className="w-6 h-6 text-yellow-600" />
+              <MessageSquare className="w-6 h-6 text-yellow-600" />
             </div>
           </div>
           <div className="mt-4 flex items-center">
-            <AlertCircle className="w-4 h-4 text-yellow-500 mr-1" />
+            <Activity className="w-4 h-4 text-yellow-500 mr-1" />
             <span className="text-sm text-yellow-600">Requires attention</span>
           </div>
         </div>
@@ -167,7 +150,7 @@ const Analytics: React.FC = () => {
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                 outerRadius={80}
                 fill="#8884d8"
                 dataKey="value"
@@ -186,10 +169,6 @@ const Analytics: React.FC = () => {
       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900">Monthly Performance</h3>
-          <div className="flex items-center space-x-2">
-            <Globe className="w-4 h-4 text-gray-500" />
-            <span className="text-sm text-gray-600">All sources</span>
-          </div>
         </div>
         <ResponsiveContainer width="100%" height={400}>
           <BarChart data={chartData}>
@@ -203,35 +182,6 @@ const Analytics: React.FC = () => {
             <Bar dataKey="views" fill="#ffc658" />
           </BarChart>
         </ResponsiveContainer>
-      </div>
-
-      {/* Recent Activity */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
-          <Users className="w-5 h-5 text-gray-400" />
-        </div>
-        <div className="space-y-4">
-          {[
-            { action: 'New testimonial approved', user: 'Sarah Johnson', time: '2 hours ago', type: 'approval' },
-            { action: 'Testimonial submitted', user: 'Mike Chen', time: '4 hours ago', type: 'submission' },
-            { action: 'Widget viewed 50 times', user: 'Homepage Widget', time: '6 hours ago', type: 'view' },
-            { action: 'Instagram import completed', user: 'Auto Import', time: '8 hours ago', type: 'import' }
-          ].map((activity, index) => (
-            <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-              <div className={`w-2 h-2 rounded-full ${
-                activity.type === 'approval' ? 'bg-green-500' :
-                activity.type === 'submission' ? 'bg-blue-500' :
-                activity.type === 'view' ? 'bg-purple-500' : 'bg-orange-500'
-              }`} />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900">{activity.action}</p>
-                <p className="text-xs text-gray-600">{activity.user} • {activity.time}</p>
-              </div>
-              <ArrowDownRight className="w-4 h-4 text-gray-400" />
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );

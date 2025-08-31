@@ -21,7 +21,7 @@ interface NotificationSettings {
 }
 
 const Settings: React.FC = () => {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const [userSettings, setUserSettings] = useState<UserSettings>({
     first_name: '',
     last_name: '',
@@ -40,7 +40,7 @@ const Settings: React.FC = () => {
 
   useEffect(() => {
     if (user) {
-      setUserSettings(prev => ({
+      setUserSettings((prev: UserSettings) => ({
         ...prev,
         email: user.email || '',
         first_name: user.user_metadata?.first_name || '',
@@ -111,7 +111,7 @@ const Settings: React.FC = () => {
                 <input
                   type="text"
                   value={userSettings.first_name}
-                  onChange={(e) => setUserSettings(prev => ({ ...prev, first_name: e.target.value }))}
+                  onChange={(e) => setUserSettings((prev: UserSettings) => ({ ...prev, first_name: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -120,7 +120,7 @@ const Settings: React.FC = () => {
                 <input
                   type="text"
                   value={userSettings.last_name}
-                  onChange={(e) => setUserSettings(prev => ({ ...prev, last_name: e.target.value }))}
+                  onChange={(e) => setUserSettings((prev: UserSettings) => ({ ...prev, last_name: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -133,7 +133,7 @@ const Settings: React.FC = () => {
                 <input
                   type="email"
                   value={userSettings.email}
-                  onChange={(e) => setUserSettings(prev => ({ ...prev, email: e.target.value }))}
+                  onChange={(e) => setUserSettings((prev: UserSettings) => ({ ...prev, email: e.target.value }))}
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   disabled
                 />
@@ -148,7 +148,7 @@ const Settings: React.FC = () => {
                   <input
                     type="text"
                     value={userSettings.company}
-                    onChange={(e) => setUserSettings(prev => ({ ...prev, company: e.target.value }))}
+                    onChange={(e) => setUserSettings((prev: UserSettings) => ({ ...prev, company: e.target.value }))}
                     className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -160,7 +160,7 @@ const Settings: React.FC = () => {
                   <input
                     type="url"
                     value={userSettings.website}
-                    onChange={(e) => setUserSettings(prev => ({ ...prev, website: e.target.value }))}
+                    onChange={(e) => setUserSettings((prev: UserSettings) => ({ ...prev, website: e.target.value }))}
                     className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="https://yourwebsite.com"
                   />
@@ -196,7 +196,7 @@ const Settings: React.FC = () => {
                 <input
                   type="checkbox"
                   checked={notifications.email_notifications}
-                  onChange={(e) => setNotifications(prev => ({ ...prev, email_notifications: e.target.checked }))}
+                  onChange={(e) => setNotifications((prev: NotificationSettings) => ({ ...prev, email_notifications: e.target.checked }))}
                   className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
                 />
               </div>
@@ -209,7 +209,7 @@ const Settings: React.FC = () => {
                 <input
                   type="checkbox"
                   checked={notifications.browser_notifications}
-                  onChange={(e) => setNotifications(prev => ({ ...prev, browser_notifications: e.target.checked }))}
+                  onChange={(e) => setNotifications((prev: NotificationSettings) => ({ ...prev, browser_notifications: e.target.checked }))}
                   className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
                 />
               </div>
@@ -222,7 +222,7 @@ const Settings: React.FC = () => {
                 <input
                   type="checkbox"
                   checked={notifications.weekly_reports}
-                  onChange={(e) => setNotifications(prev => ({ ...prev, weekly_reports: e.target.checked }))}
+                  onChange={(e) => setNotifications((prev: NotificationSettings) => ({ ...prev, weekly_reports: e.target.checked }))}
                   className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
                 />
               </div>
@@ -235,7 +235,7 @@ const Settings: React.FC = () => {
                 <input
                   type="checkbox"
                   checked={notifications.marketing_emails}
-                  onChange={(e) => setNotifications(prev => ({ ...prev, marketing_emails: e.target.checked }))}
+                  onChange={(e) => setNotifications((prev: NotificationSettings) => ({ ...prev, marketing_emails: e.target.checked }))}
                   className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
                 />
               </div>
