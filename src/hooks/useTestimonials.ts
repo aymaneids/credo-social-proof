@@ -346,3 +346,126 @@ export const useCollectionLinks = () => {
     refetch: fetchLinks
   };
 };
+
+export const useWidgetPreviews = () => {
+  const [previews, setPreviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const { user } = useAuth();
+
+  const fetchPreviews = async () => {
+    if (!user) return;
+    
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('widget_previews')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setPreviews(data || []);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createPreview = async (previewData: any) => {
+    if (!user) return null;
+    
+    try {
+      const previewUrl = Math.random().toString(36).substring(2, 15);
+      
+      const previewInsertData = {
+        ...previewData,
+        user_id: user.id,
+        preview_url: previewUrl
+      };
+
+      const { data, error } = await supabase
+        .from('widget_previews')
+        .insert([previewInsertData])
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      await fetchPreviews();
+      return data;
+    } catch (err: any) {
+      setError(err.message);
+      return null;
+    }
+  };
+
+  const getPreviewByUrl = async (previewUrl: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('widget_previews')
+        .select('*')
+        .eq('preview_url', previewUrl)
+        .eq('is_active', true)
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (err: any) {
+      setError(err.message);
+      return null;
+    }
+  };
+
+  const updatePreview = async (id: string, updates: any) => {
+    try {
+      const { data, error } = await supabase
+        .from('widget_previews')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      await fetchPreviews();
+      return data;
+    } catch (err: any) {
+      setError(err.message);
+      return null;
+    }
+  };
+
+  const deletePreview = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('widget_previews')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      await fetchPreviews();
+      return true;
+    } catch (err: any) {
+      setError(err.message);
+      return false;
+    }
+  };
+
+  useEffect(() => {
+    fetchPreviews();
+  }, [user]);
+
+  return {
+    previews,
+    loading,
+    error,
+    createPreview,
+    getPreviewByUrl,
+    updatePreview,
+    deletePreview,
+    refetch: fetchPreviews
+  };
+};
