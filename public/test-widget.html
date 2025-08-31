@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Widget Test Page</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 40px;
+            background: #f8fafc;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #1f2937;
+            margin-bottom: 16px;
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            color: #6b7280;
+        }
+        
+        .section {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            margin-bottom: 40px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        
+        .section h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 24px;
+        }
+        
+        .widget-container {
+            border: 2px dashed #e5e7eb;
+            border-radius: 12px;
+            padding: 20px;
+            background: #f9fafb;
+        }
+        
+        .instructions {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 40px;
+        }
+        
+        .instructions h3 {
+            color: #1e40af;
+            margin-bottom: 12px;
+        }
+        
+        .instructions p {
+            color: #1e40af;
+            margin-bottom: 8px;
+        }
+        
+        .instructions code {
+            background: #dbeafe;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Widget Test Page</h1>
+            <p>This page demonstrates how Credo widgets work on external websites</p>
+        </div>
+        
+        <div class="instructions">
+            <h3>How to test your widget:</h3>
+            <p>1. Go to your Credo dashboard → Widgets</p>
+            <p>2. Copy the embed code from any widget</p>
+            <p>3. Replace the placeholder script tag below with your actual embed code</p>
+            <p>4. Refresh this page to see your widget in action</p>
+        </div>
+        
+        <div class="section">
+            <h2>Your Widget Will Appear Here</h2>
+            <div class="widget-container">
+                <!-- Replace this comment with your actual widget embed code -->
+                <!-- Example: <script src="http://localhost:5173/widget/your-widget-id.js" async></script> -->
+                <p style="text-align: center; color: #6b7280; padding: 40px;">
+                    Paste your widget embed code above this comment to see it in action
+                </p>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Sample Content</h2>
+            <p>This is sample content to show how the widget integrates with regular website content. Your testimonials will appear seamlessly within your existing page layout.</p>
+            
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.</p>
+        </div>
+    </div>
+</body>
+</html>
