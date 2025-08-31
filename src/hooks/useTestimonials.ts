@@ -2,17 +2,18 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Testimonial, CollectionLink, Widget, WidgetPreview } from '../types';
 
 export const useTestimonials = () => {
-  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  const [testimonials, setTestimonials] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const { user } = useAuth();
 
   const fetchTestimonials = async () => {
     if (!user) return;
-
+    
     try {
+      setLoading(true);
       const { data, error } = await supabase
         .from('testimonials')
         .select('*')
@@ -21,31 +22,49 @@ export const useTestimonials = () => {
 
       if (error) throw error;
       setTestimonials(data || []);
-    } catch (error) {
-      console.error('Error fetching testimonials:', error);
+    } catch (err: any) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchTestimonials();
-  }, [user]);
-
-  const updateTestimonialStatus = async (id: string, status: 'approved' | 'hidden') => {
+  const createTestimonial = async (testimonialData: any) => {
+    if (!user) return null;
+    
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('testimonials')
-        .update({ status })
-        .eq('id', id);
+        .insert([{ ...testimonialData, user_id: user.id }])
+        .select()
+        .single();
 
       if (error) throw error;
       
-      setTestimonials(prev => 
-        prev.map(t => t.id === id ? { ...t, status } : t)
-      );
-    } catch (error) {
-      console.error('Error updating testimonial:', error);
+      await fetchTestimonials();
+      return data;
+    } catch (err: any) {
+      setError(err.message);
+      return null;
+    }
+  };
+
+  const updateTestimonial = async (id: string, updates: any) => {
+    try {
+      const { data, error } = await supabase
+        .from('testimonials')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      await fetchTestimonials();
+      return data;
+    } catch (err: any) {
+      setError(err.message);
+      return null;
     }
   };
 
@@ -58,144 +77,40 @@ export const useTestimonials = () => {
 
       if (error) throw error;
       
-      setTestimonials(prev => prev.filter(t => t.id !== id));
-    } catch (error) {
-      console.error('Error deleting testimonial:', error);
+      await fetchTestimonials();
+      return true;
+    } catch (err: any) {
+      setError(err.message);
+      return false;
     }
   };
+
+  useEffect(() => {
+    fetchTestimonials();
+  }, [user]);
 
   return {
     testimonials,
     loading,
-    updateTestimonialStatus,
+    error,
+    createTestimonial,
+    updateTestimonial,
     deleteTestimonial,
     refetch: fetchTestimonials
   };
 };
 
-export const useCollectionLinks = () => {
-  const [links, setLinks] = useState<CollectionLink[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
-
-  const fetchLinks = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('collection_links')
-        .select(`
-          *,
-          testimonials(count)
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setLinks(data || []);
-    } catch (error) {
-      console.error('Error fetching collection links:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchLinks();
-  }, [user]);
-
-  const createLink = async (linkData: Omit<CollectionLink, 'id' | 'user_id' | 'url' | 'created_at'>) => {
-    if (!user) return;
-
-    try {
-      const linkId = crypto.randomUUID();
-      
-      // Get user's username for the new URL structure
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('username')
-        .eq('id', user.id)
-        .single();
-
-      if (userError) throw userError;
-      
-      // Generate URL based on whether user has username set
-      const url = userData?.username && linkData.slug
-        ? `${window.location.origin}/c/${userData.username}/${linkData.slug}`
-        : `${window.location.origin}/collect/${linkId}`;
-
-      const { data, error } = await supabase
-        .from('collection_links')
-        .insert({
-          id: linkId,
-          user_id: user.id,
-          url,
-          ...linkData
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      
-      setLinks(prev => [data, ...prev]);
-      return data;
-    } catch (error) {
-      console.error('Error creating collection link:', error);
-      throw error;
-    }
-  };
-
-  const updateLink = async (id: string, updates: Partial<CollectionLink>) => {
-    try {
-      const { error } = await supabase
-        .from('collection_links')
-        .update(updates)
-        .eq('id', id);
-
-      if (error) throw error;
-      
-      setLinks(prev => 
-        prev.map(link => link.id === id ? { ...link, ...updates } : link)
-      );
-    } catch (error) {
-      console.error('Error updating collection link:', error);
-    }
-  };
-
-  const deleteLink = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('collection_links')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-      
-      setLinks(prev => prev.filter(link => link.id !== id));
-    } catch (error) {
-      console.error('Error deleting collection link:', error);
-    }
-  };
-
-  return {
-    links,
-    loading,
-    createLink,
-    updateLink,
-    deleteLink,
-    refetch: fetchLinks
-  };
-};
-
 export const useWidgets = () => {
-  const [widgets, setWidgets] = useState<Widget[]>([]);
+  const [widgets, setWidgets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const { user } = useAuth();
 
   const fetchWidgets = async () => {
     if (!user) return;
-
+    
     try {
+      setLoading(true);
       const { data, error } = await supabase
         .from('widgets')
         .select('*')
@@ -204,97 +119,58 @@ export const useWidgets = () => {
 
       if (error) throw error;
       setWidgets(data || []);
-    } catch (error) {
-      console.error('Error fetching widgets:', error);
+    } catch (err: any) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchWidgets();
-  }, [user]);
-
-  const createWidget = async (widgetData: {
-    widget_name: string;
-    widget_type: string;
-    settings: any;
-    is_active?: boolean;
-  }) => {
-    if (!user) return;
-
+  const createWidget = async (widgetCreateData: any) => {
+    if (!user) return null;
+    
     try {
-      // First, ensure the user exists in the users table
-      const { data, error: userCheckError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('id', user.id)
-        .single();
-
-      if (userCheckError && userCheckError.code === 'PGRST116') {
-        // User doesn't exist, create them
-        const { error: userCreateError } = await supabase
-          .from('users')
-          .insert({
-            id: user.id,
-            email: user.email || '',
-            first_name: user.user_metadata?.first_name || '',
-            last_name: user.user_metadata?.last_name || '',
-            company: user.user_metadata?.company || ''
-          });
-
-        if (userCreateError) {
-          console.error('Error creating user:', userCreateError);
-          throw new Error('Failed to create user profile. Please try signing in again.');
-        }
-      } else if (userCheckError) {
-        throw userCheckError;
-      }
-
-      const widgetId = crypto.randomUUID();
-      const embedCode = `<script src="${window.location.origin}/widget/${widgetId}.js" async></script>`;
+      // Generate a unique embed code
+      const embedCode = `<script src="https://testimonial-widget.com/widget.js" data-widget-id="${Date.now()}"></script>`;
       
-      const { data: widgetData, error } = await supabase
+      const widgetInsertData = {
+        ...widgetCreateData,
+        user_id: user.id,
+        embed_code: embedCode
+      };
+
+      const { data, error } = await supabase
         .from('widgets')
-        .insert({
-          id: widgetId,
-          user_id: user.id,
-          widget_name: widgetData.widget_name,
-          widget_type: widgetData.widget_type,
-          settings: widgetData.settings,
-          is_active: widgetData.is_active ?? true,
-          embed_code: embedCode,
-          views_count: 0,
-          clicks_count: 0
-        })
+        .insert([widgetInsertData])
         .select()
         .single();
 
       if (error) throw error;
-
-      setWidgets(prev => [widgetData, ...prev]);
       
-      return widgetData;
-    } catch (error) {
-      console.error('Error creating widget:', error);
-      throw error;
+      await fetchWidgets();
+      return data;
+    } catch (err: any) {
+      setError(err.message);
+      return null;
     }
   };
 
-  const updateWidget = async (id: string, updates: Partial<Widget>) => {
+  const updateWidget = async (id: string, updates: any) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('widgets')
         .update(updates)
-        .eq('id', id);
+        .eq('id', id)
+        .select()
+        .single();
 
       if (error) throw error;
       
-      setWidgets(prev => 
-        prev.map(widget => widget.id === id ? { ...widget, ...updates } : widget)
-      );
-    } catch (error) {
-      console.error('Error updating widget:', error);
+      await fetchWidgets();
+      return data;
+    } catch (err: any) {
+      setError(err.message);
+      return null;
     }
   };
 
@@ -307,155 +183,166 @@ export const useWidgets = () => {
 
       if (error) throw error;
       
-      setWidgets(prev => prev.filter(widget => widget.id !== id));
-    } catch (error) {
-      console.error('Error deleting widget:', error);
+      await fetchWidgets();
+      return true;
+    } catch (err: any) {
+      setError(err.message);
+      return false;
     }
   };
 
-  const incrementViews = async (id: string) => {
-    const widget = widgets.find(w => w.id === id);
-    if (widget) {
-      await updateWidget(id, { views_count: widget.views_count + 1 });
+  const getWidget = async (id: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('widgets')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (err: any) {
+      setError(err.message);
+      return null;
     }
   };
 
-  const incrementClicks = async (id: string) => {
-    const widget = widgets.find(w => w.id === id);
-    if (widget) {
-      await updateWidget(id, { clicks_count: widget.clicks_count + 1 });
+  const duplicateWidget = async (id: string) => {
+    try {
+      const originalWidget = await getWidget(id);
+      if (!originalWidget) return null;
+
+      const newWidgetData = {
+        widget_name: `${originalWidget.widget_name} (Copy)`,
+        widget_type: originalWidget.widget_type,
+        settings: originalWidget.settings,
+        is_active: false
+      };
+
+      return await createWidget(newWidgetData);
+    } catch (err: any) {
+      setError(err.message);
+      return null;
     }
   };
+
+  useEffect(() => {
+    fetchWidgets();
+  }, [user]);
 
   return {
     widgets,
     loading,
+    error,
     createWidget,
     updateWidget,
     deleteWidget,
-    incrementViews,
-    incrementClicks,
+    getWidget,
+    duplicateWidget,
     refetch: fetchWidgets
   };
 };
 
-export const useWidgetPreviews = () => {
-  const [previews, setPreviews] = useState<WidgetPreview[]>([]);
+export const useCollectionLinks = () => {
+  const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const { user } = useAuth();
 
-  const fetchPreviews = async () => {
+  const fetchLinks = async () => {
     if (!user) return;
-
+    
     try {
+      setLoading(true);
       const { data, error } = await supabase
-        .from('widget_previews')
+        .from('collection_links')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setPreviews(data || []);
-    } catch (error) {
-      console.error('Error fetching widget previews:', error);
+      setLinks(data || []);
+    } catch (err: any) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchPreviews();
-  }, [user]);
-
-  const createPreview = async (widgetId: string, widgetData: Widget, testimonials: Testimonial[]) => {
-    if (!user) return;
-
+  const createLink = async (linkData: any) => {
+    if (!user) return null;
+    
     try {
-      const previewId = crypto.randomUUID();
-      const previewUrl = `preview-${previewId}`;
+      const linkId = Math.random().toString(36).substring(2, 15);
       
+      const linkInsertData = {
+        ...linkData,
+        user_id: user.id,
+        link_id: linkId,
+        url: `${window.location.origin}/collect/${linkId}`
+      };
+
       const { data, error } = await supabase
-        .from('widget_previews')
-        .insert({
-          id: previewId,
-          widget_id: widgetId,
-          user_id: user.id,
-          preview_data: {
-            widget: widgetData,
-            testimonials: testimonials
-          },
-          preview_url: previewUrl,
-          is_active: true
-        })
+        .from('collection_links')
+        .insert([linkInsertData])
         .select()
         .single();
 
       if (error) throw error;
       
-      setPreviews(prev => [data, ...prev]);
+      await fetchLinks();
       return data;
-    } catch (error) {
-      console.error('Error creating widget preview:', error);
-      throw error;
+    } catch (err: any) {
+      setError(err.message);
+      return null;
     }
   };
 
-  const updatePreview = async (id: string, updates: Partial<WidgetPreview>) => {
+  const updateLink = async (id: string, updates: any) => {
     try {
       const { error } = await supabase
-        .from('widget_previews')
+        .from('collection_links')
         .update(updates)
         .eq('id', id);
 
       if (error) throw error;
       
-      setPreviews(prev => 
-        prev.map(preview => preview.id === id ? { ...preview, ...updates } : preview)
-      );
-    } catch (error) {
-      console.error('Error updating widget preview:', error);
+      await fetchLinks();
+      return true;
+    } catch (err: any) {
+      setError(err.message);
+      return false;
     }
   };
 
-  const deletePreview = async (id: string) => {
+  const deleteLink = async (id: string) => {
     try {
       const { error } = await supabase
-        .from('widget_previews')
+        .from('collection_links')
         .delete()
         .eq('id', id);
 
       if (error) throw error;
       
-      setPreviews(prev => prev.filter(preview => preview.id !== id));
-    } catch (error) {
-      console.error('Error deleting widget preview:', error);
+      await fetchLinks();
+      return true;
+    } catch (err: any) {
+      setError(err.message);
+      return false;
     }
   };
 
-  const getPreviewByUrl = async (previewUrl: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('widget_previews')
-        .select('*')
-        .eq('preview_url', previewUrl)
-        .eq('is_active', true)
-        .single();
-
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('Error fetching preview by URL:', error);
-      throw error; // Re-throw to handle in component
-    }
-  };
+  useEffect(() => {
+    fetchLinks();
+  }, [user]);
 
   return {
-    previews,
+    links,
     loading,
-    createPreview,
-    updatePreview,
-    deletePreview,
-    getPreviewByUrl,
-    refetch: fetchPreviews
+    error,
+    createLink,
+    updateLink,
+    deleteLink,
+    refetch: fetchLinks
   };
 };

@@ -1,9 +1,6 @@
-
 import React, { useState } from 'react';
 import { Wand2, Eye, Code, Copy, CheckCircle, Settings, Palette, Filter } from 'lucide-react';
 import { useWidgets } from '../../hooks/useTestimonials';
-import { useAuth } from '../../contexts/AuthContext';
-import { useCollectionLinks } from '../../hooks/useTestimonials';
 
 interface WidgetSettings {
   theme: 'light' | 'dark' | 'auto';
@@ -19,8 +16,6 @@ interface WidgetSettings {
 
 const CreateWidget: React.FC = () => {
   const { createWidget } = useWidgets();
-  const { user } = useAuth();
-  const { links } = useCollectionLinks();
 
   const [widgetName, setWidgetName] = useState('');
   const [widgetType, setWidgetType] = useState<'wall' | 'carousel' | 'single' | 'masonry' | 'list' | 'floating' | 'featured' | 'awards' | 'infinite-scroll'>('wall');

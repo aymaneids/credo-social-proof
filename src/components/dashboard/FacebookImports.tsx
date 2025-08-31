@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { Facebook, Plus, Download, Filter, Eye, MessageSquare, ExternalLink, Trash2, BarChart3, TrendingUp, Users, Heart, ChevronDown, ChevronUp } from 'lucide-react';
+import { Facebook, Plus, Download, Eye, MessageSquare, ExternalLink, Trash2, BarChart3, TrendingUp, Users, Heart, ChevronDown, ChevronUp } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 
 const FacebookImports: React.FC = () => {
@@ -60,7 +61,19 @@ const FacebookImports: React.FC = () => {
         status: 'pending',
         testimonialsFound: 0,
         dateAdded: new Date().toISOString().split('T')[0],
-        lastScanned: null
+        lastScanned: null,
+        analytics: {
+          engagementRate: 0,
+          testimonialsConverted: 0,
+          sentimentBreakdown: { positive: 0, neutral: 0, negative: 0 },
+          performanceData: [
+            { day: 'Mon', engagement: 0 },
+            { day: 'Tue', engagement: 0 },
+            { day: 'Wed', engagement: 0 },
+            { day: 'Thu', engagement: 0 },
+            { day: 'Fri', engagement: 0 }
+          ]
+        }
       };
       setSavedUrls([newUrl, ...savedUrls]);
       setUrlInput('');
