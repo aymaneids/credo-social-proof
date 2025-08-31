@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Layout, Play, Quote, Tag, X, Star, Save, Trash2, Grid3X3, List, Zap, Heart, Trophy, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useWidgets, useTestimonials, useCollectionLinks, Widget } from '../../hooks/useTestimonials';
+import { useWidgets, useTestimonials, useCollectionLinks } from '../../hooks/useTestimonials';
 
-// Widget Preview Component (same as CreateWidget)
+// Widget Preview Component
 const WidgetPreview: React.FC<{
   type: string;
   theme: string;
@@ -70,44 +70,40 @@ const WidgetPreview: React.FC<{
   const TestimonialCard: React.FC<{ testimonial: any; index?: number }> = ({ testimonial, index = 0 }) => (
     <div className={`${getAnimationClass()} ${getThemeClasses()} rounded-xl p-6 border ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200/50'} shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 group backdrop-blur-sm`} 
          style={{ animationDelay: `${index * 100}ms` }}>
-      {/* Subtle gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 to-purple-50/30 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
       
       <div className="relative z-10">
-      {/* Rating */}
-      {showRatings && (
-        <div className="flex items-center mb-4 group-hover:scale-105 transition-transform duration-200">
-          {[...Array(testimonial.rating)].map((_, i) => (
-            <Star key={i} className="w-5 h-5 text-yellow-400 fill-current" />
-          ))}
-        </div>
-      )}
-      
-      {/* Content */}
-      <blockquote className={`text-base leading-relaxed mb-6 font-medium ${theme === 'dark' ? 'text-gray-300' : 'text-gray-800'} group-hover:text-gray-900 transition-colors duration-200`}>
-        "{testimonial.content}"
-      </blockquote>
-      
-      {/* Author */}
-      <div className="flex items-center space-x-3 group-hover:transform group-hover:scale-105 transition-all duration-200">
-        {showAvatars && (
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg ring-2 ring-white group-hover:ring-4 group-hover:ring-blue-100 transition-all duration-200">
-            <span className="text-white font-semibold text-sm">
-              {testimonial.client_name[0]}
-            </span>
+        {showRatings && (
+          <div className="flex items-center mb-4 group-hover:scale-105 transition-transform duration-200">
+            {[...Array(testimonial.rating || 5)].map((_, i) => (
+              <Star key={i} className="w-5 h-5 text-yellow-400 fill-current" />
+            ))}
           </div>
         )}
-        <div className="flex-1 min-w-0">
-          <div className={`font-semibold text-sm ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-            {testimonial.client_name}
-          </div>
-          {showCompany && testimonial.company && (
-            <div className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-              {testimonial.company}
+        
+        <blockquote className={`text-base leading-relaxed mb-6 font-medium ${theme === 'dark' ? 'text-gray-300' : 'text-gray-800'} group-hover:text-gray-900 transition-colors duration-200`}>
+          "{testimonial.content}"
+        </blockquote>
+        
+        <div className="flex items-center space-x-3 group-hover:transform group-hover:scale-105 transition-all duration-200">
+          {showAvatars && (
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg ring-2 ring-white group-hover:ring-4 group-hover:ring-blue-100 transition-all duration-200">
+              <span className="text-white font-semibold text-sm">
+                {testimonial.client_name?.[0] || 'U'}
+              </span>
             </div>
           )}
+          <div className="flex-1 min-w-0">
+            <div className={`font-semibold text-sm ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+              {testimonial.client_name || 'Anonymous'}
+            </div>
+            {showCompany && testimonial.company && (
+              <div className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                {testimonial.company}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
       </div>
     </div>
   );
@@ -127,7 +123,7 @@ const WidgetPreview: React.FC<{
 
     case 'carousel':
       return (
-        <div className={`relative group ${className}`}>
+        <div className="relative group">
           <div className="relative overflow-hidden rounded-xl">
             <div 
               className="flex transition-transform duration-500 ease-out"
@@ -141,7 +137,6 @@ const WidgetPreview: React.FC<{
             </div>
           </div>
           
-          {/* Navigation buttons */}
           {displayTestimonials.length > 1 && (
             <>
               <button
@@ -156,30 +151,7 @@ const WidgetPreview: React.FC<{
               >
                 <ChevronRight className="w-5 h-5 text-gray-700" />
               </button>
-              
-              {/* Carousel indicators */}
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-                {displayTestimonials.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setCurrentIndex(index)}
-                    className={`rounded-full transition-all duration-300 ${
-                      index === currentIndex 
-                        ? 'bg-blue-500 w-6 h-2' 
-                        : 'bg-white/60 hover:bg-white/80 w-2 h-2'
-                    }`}
-                  />
-                ))}
-              </div>
             </>
-          )}
-          
-          {/* Autoplay indicator */}
-          {autoplay && displayTestimonials.length > 1 && (
-            <div className="absolute top-4 right-4 bg-green-500/90 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center space-x-1">
-              <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-              <span>Auto</span>
-            </div>
           )}
         </div>
       );
@@ -191,64 +163,15 @@ const WidgetPreview: React.FC<{
         </div>
       );
 
-    case 'infinite-scroll':
-      // Create extended testimonials for seamless infinite scroll
-      const extendedTestimonials = Array.from({ length: 12 }, (_, i) => ({
-        ...displayTestimonials[i % displayTestimonials.length],
-        id: `${displayTestimonials[i % displayTestimonials.length]?.id || 'default'}-${i}`
-      }));
-
+    default:
       return (
-        <div className={`rounded-xl p-4 ${getThemeClasses()} border ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'} relative overflow-hidden h-64`}>
-          {/* Gradient Masks */}
-          <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-white to-transparent z-10 pointer-events-none" />
-          <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent z-10 pointer-events-none" />
-          
-          <div className="absolute inset-0 grid grid-cols-3 gap-2">
-            {/* First Column - Moving Up */}
-            <div className="relative overflow-hidden">
-              <div className="flex flex-col gap-2 animate-scroll-up">
-                {[...extendedTestimonials, ...extendedTestimonials].map((testimonial, index) => (
-                  <div key={`col1-${index}`} className="flex-shrink-0">
-                    <div className="scale-75 origin-top">
-                      <TestimonialCard testimonial={testimonial} index={index} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Second Column - Moving Down */}
-            <div className="relative overflow-hidden">
-              <div className="flex flex-col gap-2 animate-scroll-down">
-                {[...extendedTestimonials, ...extendedTestimonials].slice().reverse().map((testimonial, index) => (
-                  <div key={`col2-${index}`} className="flex-shrink-0">
-                    <div className="scale-75 origin-top">
-                      <TestimonialCard testimonial={testimonial} index={index} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Third Column - Moving Up with Delay */}
-            <div className="relative overflow-hidden">
-              <div className="flex flex-col gap-2 animate-scroll-up-delayed">
-                {[...extendedTestimonials, ...extendedTestimonials].map((testimonial, index) => (
-                  <div key={`col3-${index}`} className="flex-shrink-0">
-                    <div className="scale-75 origin-top">
-                      <TestimonialCard testimonial={testimonial} index={index} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+        <div className={`rounded-xl p-6 ${getThemeClasses()} border-2 border-dashed border-gray-300`}>
+          <div className="text-center text-gray-500">
+            <Layout className="w-8 h-8 mx-auto mb-2" />
+            <p className="text-sm">Widget type not implemented yet</p>
           </div>
         </div>
       );
-
-    default:
-      return null;
   }
 };
 
@@ -261,8 +184,8 @@ const EditWidget: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    type: 'wall',
-    theme: 'light',
+    type: 'wall' as 'wall' | 'carousel' | 'single',
+    theme: 'light' as 'light' | 'dark' | 'auto',
     max_testimonials: 10,
     animation_style: 'fade',
     show_ratings: true,
@@ -273,7 +196,6 @@ const EditWidget: React.FC = () => {
 
   const { widgets, updateWidget, deleteWidget } = useWidgets();
   const { testimonials } = useTestimonials();
-  const { links } = useCollectionLinks();
 
   // Load widget data
   useEffect(() => {
@@ -282,22 +204,21 @@ const EditWidget: React.FC = () => {
       if (widget) {
         setFormData({
           name: widget.widget_name,
-          type: widget.widget_type,
-          theme: widget.settings.theme,
-          max_testimonials: widget.settings.max_testimonials,
-          animation_style: widget.settings.animation_style,
-          show_ratings: widget.settings.show_ratings,
-          show_avatars: widget.settings.show_avatars,
-          show_company: widget.settings.show_company,
-          autoplay: widget.settings.autoplay
+          type: widget.widget_type as 'wall' | 'carousel' | 'single',
+          theme: widget.settings?.theme as 'light' | 'dark' | 'auto' || 'light',
+          max_testimonials: widget.settings?.max_testimonials || 10,
+          animation_style: widget.settings?.animation_style || 'fade',
+          show_ratings: widget.settings?.show_ratings ?? true,
+          show_avatars: widget.settings?.show_avatars ?? true,
+          show_company: widget.settings?.show_company ?? true,
+          autoplay: widget.settings?.autoplay ?? false
         });
-        setSelectedSources(widget.settings.selected_sources || ['direct']);
-        setTags(widget.settings.filter_tags || []);
+        setSelectedSources(widget.settings?.selected_sources || ['direct']);
+        setTags(widget.settings?.filter_tags || []);
       }
     }
   }, [widgetId, widgets]);
 
-  // Calculate real testimonial counts by source
   const getSourceCounts = () => {
     const counts = {
       direct: testimonials.filter(t => t.source === 'direct').length,
