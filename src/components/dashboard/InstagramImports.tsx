@@ -1,340 +1,429 @@
 import React, { useState } from 'react';
-import { Instagram, Plus, Download, Filter, Eye, MessageSquare, BarChart3, TrendingUp, Users, Heart, ChevronDown, ChevronUp } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
+import { Instagram, Plus, Download, Filter, Eye, MessageSquare, ExternalLink, Trash2, BarChart3, TrendingUp, Users, Heart, ChevronDown, ChevronUp, Loader, CheckCircle, XCircle, Sparkles, Star, User, ThumbsUp, MessageCircle } from 'lucide-react';
+import { useInstagramImports, InstagramComment } from '../../hooks/useInstagramImports';
 
 const InstagramImports: React.FC = () => {
-  const [isConnected, setIsConnected] = useState(false);
-  const [selectedPosts, setSelectedPosts] = useState<string[]>([]);
-  const [expandedPost, setExpandedPost] = useState<string | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
+  const [titleInput, setTitleInput] = useState('');
+  const [maxComments, setMaxComments] = useState(20);
+  const [useAI, setUseAI] = useState(false);
+  const [expandedImport, setExpandedImport] = useState<string | null>(null);
+  const [expandedComments, setExpandedComments] = useState<string | null>(null);
+  const [lastScrapeResult, setLastScrapeResult] = useState<InstagramComment[] | null>(null);
 
-  // Mock Instagram posts data
-  const instagramPosts = [
-    {
-      id: '1',
-      type: 'reel',
-      thumbnail: 'https://images.pexels.com/photos/1181671/pexels-photo-1181671.jpeg?auto=compress&cs=tinysrgb&w=300',
-      caption: 'Just launched our new feature! 🚀',
-      likes: 245,
-      comments: 23,
-      date: '2024-01-15',
-      potentialTestimonials: 5,
-      analytics: {
-        engagementRate: 12.3,
-        testimonialsConverted: 3,
-        sentimentBreakdown: { positive: 80, neutral: 15, negative: 5 },
-        performanceData: [
-          { hour: '9AM', engagement: 12 },
-          { hour: '12PM', engagement: 25 },
-          { hour: '3PM', engagement: 18 },
-          { hour: '6PM', engagement: 35 },
-          { hour: '9PM', engagement: 28 }
-        ]
-      }
-    },
-    {
-      id: '2',
-      type: 'post',
-      thumbnail: 'https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=300',
-      caption: 'Behind the scenes of building our SaaS',
-      likes: 189,
-      comments: 34,
-      date: '2024-01-12',
-      potentialTestimonials: 8,
-      analytics: {
-        engagementRate: 15.7,
-        testimonialsConverted: 5,
-        sentimentBreakdown: { positive: 75, neutral: 20, negative: 5 },
-        performanceData: [
-          { hour: '9AM', engagement: 8 },
-          { hour: '12PM', engagement: 20 },
-          { hour: '3PM', engagement: 15 },
-          { hour: '6PM', engagement: 30 },
-          { hour: '9PM', engagement: 22 }
-        ]
-      }
-    },
-    {
-      id: '3',
-      type: 'reel',
-      thumbnail: 'https://images.pexels.com/photos/1181354/pexels-photo-1181354.jpeg?auto=compress&cs=tinysrgb&w=300',
-      caption: 'Customer success story 💪',
-      likes: 312,
-      comments: 45,
-      date: '2024-01-10',
-      potentialTestimonials: 12,
-      analytics: {
-        engagementRate: 18.9,
-        testimonialsConverted: 8,
-        sentimentBreakdown: { positive: 85, neutral: 12, negative: 3 },
-        performanceData: [
-          { hour: '9AM', engagement: 15 },
-          { hour: '12PM', engagement: 30 },
-          { hour: '3PM', engagement: 25 },
-          { hour: '6PM', engagement: 42 },
-          { hour: '9PM', engagement: 35 }
-        ]
-      }
+  const { imports, loading, scraping, scrapeInstagramPost, refetch } = useInstagramImports();
+
+  const handleScrapePost = async () => {
+    if (!urlInput.trim()) return;
+
+    try {
+      const result = await scrapeInstagramPost(
+        urlInput,
+        titleInput || 'Instagram Post',
+        maxComments,
+        useAI
+      );
+
+      setLastScrapeResult(result.comments);
+      setUrlInput('');
+      setTitleInput('');
+      setShowAddForm(false);
+      
+      // Show success message or handle result
+      console.log('Scrape completed:', result);
+    } catch (error) {
+      console.error('Error scraping Instagram post:', error);
+      alert(error instanceof Error ? error.message : 'Failed to scrape Instagram post');
     }
-  ];
-
-  const mockComments = [
-    {
-      id: '1',
-      author: 'sarah_founder',
-      content: 'This is exactly what I needed for my startup! Amazing work 🔥',
-      sentiment: 'positive',
-      isTestimonial: true
-    },
-    {
-      id: '2',
-      author: 'tech_mike',
-      content: 'Game changer! Been using this for weeks now',
-      sentiment: 'positive',
-      isTestimonial: true
-    },
-    {
-      id: '3',
-      author: 'random_user',
-      content: 'First! 🎉',
-      sentiment: 'neutral',
-      isTestimonial: false
-    }
-  ];
-
-  const handleConnect = () => {
-    setIsConnected(true);
   };
 
-  const togglePostSelection = (postId: string) => {
-    setSelectedPosts(prev => 
-      prev.includes(postId) 
-        ? prev.filter(id => id !== postId)
-        : [...prev, postId]
-    );
+  const getStatusBadge = (status: string) => {
+    const configs = {
+      completed: { color: 'bg-green-100 text-green-800 border-green-200', label: 'Completed', icon: CheckCircle },
+      processing: { color: 'bg-blue-100 text-blue-800 border-blue-200', label: 'Processing' },
+      pending: { color: 'bg-amber-100 text-amber-800 border-amber-200', label: 'Pending', icon: Loader },
+      failed: { color: 'bg-red-100 text-red-800 border-red-200', label: 'Failed', icon: XCircle }
+    };
+    return configs[status as keyof typeof configs] || configs.pending;
   };
 
-  const togglePostAnalytics = (postId: string) => {
-    setExpandedPost(expandedPost === postId ? null : postId);
+  const toggleImportDetails = (importId: string) => {
+    setExpandedImport(expandedImport === importId ? null : importId);
   };
 
-  if (!isConnected) {
+  const toggleComments = (importId: string) => {
+    setExpandedComments(expandedComments === importId ? null : importId);
+  };
+
+  if (loading) {
     return (
-      <div className="p-6">
-        <div className="max-w-2xl mx-auto text-center">
-          <div className="w-16 h-16 bg-pink-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Instagram className="w-8 h-8 text-pink-600" />
+      <div className="p-6 space-y-6 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 min-h-screen">
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-pink-200 border-t-pink-600 rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading Instagram imports...</p>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Connect Your Instagram Account</h1>
-          <p className="text-gray-600 mb-8">
-            Import testimonials from your Instagram posts and reels automatically. 
-            We'll analyze comments and identify potential testimonials for you.
-          </p>
-          
-          <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 mb-8">
-            <h3 className="font-semibold text-gray-900 mb-4">What we'll do:</h3>
-            <div className="space-y-3 text-left">
-              <div className="flex items-center space-x-3">
-                <div className="w-2 h-2 bg-pink-500 rounded-full"></div>
-                <span className="text-gray-700">Scan your recent posts and reels</span>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="w-2 h-2 bg-pink-500 rounded-full"></div>
-                <span className="text-gray-700">Analyze comments for testimonial content</span>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="w-2 h-2 bg-pink-500 rounded-full"></div>
-                <span className="text-gray-700">Filter out spam and irrelevant comments</span>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="w-2 h-2 bg-pink-500 rounded-full"></div>
-                <span className="text-gray-700">Let you review and approve before importing</span>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={handleConnect}
-            className="bg-pink-600 hover:bg-pink-700 text-white px-8 py-3 rounded-lg font-semibold transition-colors flex items-center space-x-2 mx-auto"
-          >
-            <Instagram className="w-5 h-5" />
-            <span>Connect Instagram Account</span>
-          </button>
-          
-          <p className="text-sm text-gray-500 mt-4">
-            We only read public comments. Your account credentials are never stored.
-          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 min-h-screen">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between animate-fade-in">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Instagram Imports</h1>
-          <p className="text-gray-600">Import testimonials from your Instagram posts and reels</p>
+          <h1 className="text-3xl font-bold text-gray-900 bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+            Instagram Imports
+          </h1>
+          <p className="text-gray-600 text-lg">Import testimonials from Instagram posts by adding URLs</p>
         </div>
-        <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <span>Connected as @your_account</span>
-          </div>
-          <button className="bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-            Refresh Posts
-          </button>
-        </div>
+        <button
+          onClick={() => setShowAddForm(true)}
+          className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 shadow-lg flex items-center space-x-2"
+        >
+          <Plus className="w-5 h-5" />
+          <span>Add Instagram URL</span>
+        </button>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-          <div className="text-2xl font-bold text-gray-900">127</div>
-          <div className="text-sm text-gray-600">Total Posts Scanned</div>
-        </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-          <div className="text-2xl font-bold text-gray-900">45</div>
-          <div className="text-sm text-gray-600">Potential Testimonials</div>
-        </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-          <div className="text-2xl font-bold text-gray-900">23</div>
-          <div className="text-sm text-gray-600">Imported This Month</div>
-        </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-          <div className="text-2xl font-bold text-gray-900">89%</div>
-          <div className="text-sm text-gray-600">Accuracy Rate</div>
-        </div>
-      </div>
-
-      {/* Posts Grid */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Recent Posts</h2>
-          <div className="flex items-center space-x-2">
-            <button className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-              <Filter className="w-4 h-4" />
-              <span>Filter</span>
-            </button>
-            {selectedPosts.length > 0 && (
-              <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2">
-                <Download className="w-4 h-4" />
-                <span>Import Selected ({selectedPosts.length})</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {instagramPosts.map((post) => (
-            <div key={post.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="relative">
-                <img
-                  src={post.thumbnail}
-                  alt="Instagram post"
-                  className="w-full h-48 object-cover"
-                />
-                <div className="absolute top-2 left-2">
-                  <span className="bg-pink-600 text-white px-2 py-1 rounded text-xs font-medium">
-                    {post.type}
-                  </span>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-slide-up" style={{ animationDelay: '100ms' }}>
+        {[
+          { label: 'Total Imports', value: imports.length.toString(), icon: Instagram, color: 'pink' },
+          { label: 'Comments Found', value: imports.reduce((sum, imp) => sum + imp.total_comments_found, 0).toString(), icon: MessageSquare, color: 'green' },
+          { label: 'Testimonials Saved', value: imports.reduce((sum, imp) => sum + imp.comments_saved, 0).toString(), icon: CheckCircle, color: 'blue' },
+          { label: 'This Month', value: imports.filter(imp => imp.created_at.startsWith('2025-01')).length.toString(), icon: Download, color: 'purple' }
+        ].map((stat, index) => {
+          const IconComponent = stat.icon;
+          return (
+            <div key={index} className="bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-sm border border-white/20 hover:shadow-md transition-all duration-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">{stat.label}</p>
+                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
                 </div>
-                <div className="absolute top-2 right-2">
-                  <input
-                    type="checkbox"
-                    checked={selectedPosts.includes(post.id)}
-                    onChange={() => togglePostSelection(post.id)}
-                    className="w-4 h-4 text-blue-600 rounded"
-                  />
+                <div className={`w-10 h-10 rounded-lg bg-${stat.color}-100 flex items-center justify-center`}>
+                  <IconComponent className={`w-5 h-5 text-${stat.color}-600`} />
                 </div>
-              </div>
-              
-              <div className="p-4">
-                <p className="text-gray-700 text-sm mb-3 line-clamp-2">{post.caption}</p>
-                
-                <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
-                  <div className="flex items-center space-x-4">
-                    <span>{post.likes} likes</span>
-                    <span>{post.comments} comments</span>
-                  </div>
-                  <span>{new Date(post.date).toLocaleDateString()}</span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <MessageSquare className="w-4 h-4 text-green-600" />
-                    <span className="text-sm font-medium text-green-600">
-                      {post.potentialTestimonials} potential testimonials
-                    </span>
-                  </div>
-                  <div className="flex space-x-2">
-                    <button 
-                      onClick={() => togglePostAnalytics(post.id)}
-                      className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center space-x-1"
-                    >
-                      <BarChart3 className="w-4 h-4" />
-                      <span>Analytics</span>
-                      {expandedPost === post.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Expanded Analytics */}
-                {expandedPost === post.id && (
-                  <div className="mt-4 pt-4 border-t border-gray-200 animate-slide-up">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                      <div className="bg-blue-50 rounded-lg p-3 text-center">
-                        <TrendingUp className="w-5 h-5 text-blue-600 mx-auto mb-1" />
-                        <div className="text-lg font-bold text-blue-900">{post.analytics.engagementRate}%</div>
-                        <div className="text-xs text-blue-700">Engagement</div>
-                      </div>
-                      
-                      <div className="bg-green-50 rounded-lg p-3 text-center">
-                        <MessageSquare className="w-5 h-5 text-green-600 mx-auto mb-1" />
-                        <div className="text-lg font-bold text-green-900">{post.analytics.testimonialsConverted}</div>
-                        <div className="text-xs text-green-700">Converted</div>
-                      </div>
-                      
-                      <div className="bg-purple-50 rounded-lg p-3 text-center">
-                        <Heart className="w-5 h-5 text-purple-600 mx-auto mb-1" />
-                        <div className="text-lg font-bold text-purple-900">{post.analytics.sentimentBreakdown.positive}%</div>
-                        <div className="text-xs text-purple-700">Positive</div>
-                      </div>
-                      
-                      <div className="bg-amber-50 rounded-lg p-3 text-center">
-                        <Users className="w-5 h-5 text-amber-600 mx-auto mb-1" />
-                        <div className="text-lg font-bold text-amber-900">{((post.analytics.testimonialsConverted / post.potentialTestimonials) * 100).toFixed(0)}%</div>
-                        <div className="text-xs text-amber-700">Conversion</div>
-                      </div>
-                    </div>
-
-                    <div className="bg-white rounded-lg p-4 border border-gray-200">
-                      <h6 className="font-semibold text-gray-900 mb-3">Engagement Throughout Day</h6>
-                      <ResponsiveContainer width="100%" height={150}>
-                        <LineChart data={post.analytics.performanceData}>
-                          <XAxis dataKey="hour" stroke="#64748b" fontSize={12} />
-                          <YAxis stroke="#64748b" fontSize={12} />
-                          <Tooltip 
-                            contentStyle={{ 
-                              backgroundColor: 'rgba(255, 255, 255, 0.95)', 
-                              border: 'none', 
-                              borderRadius: '8px', 
-                              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)' 
-                            }} 
-                          />
-                          <Line type="monotone" dataKey="engagement" stroke="#E1306C" strokeWidth={3} dot={{ fill: '#E1306C', strokeWidth: 2, r: 4 }} />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
-          ))}
-        </div>
+          );
+        })}
       </div>
 
-      {/* Preview Modal would go here */}
+      {/* Add URL Form */}
+      {showAddForm && (
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20 animate-slide-up">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Scrape Instagram Post Comments</h3>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Instagram Post URL</label>
+              <p className="text-xs text-gray-500 mb-2">
+                Paste any Instagram post, reel, or TV URL (e.g., https://instagram.com/p/ABC123/)
+              </p>
+              <input
+                type="url"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                placeholder="https://www.instagram.com/p/DC7Q4z5JPMX/"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-200"
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Title (Optional)</label>
+              <input
+                type="text"
+                value={titleInput}
+                onChange={(e) => setTitleInput(e.target.value)}
+                placeholder="e.g., Product Launch Post"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-200"
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Max Comments</label>
+                <select
+                  value={maxComments}
+                  onChange={(e) => setMaxComments(parseInt(e.target.value))}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-200"
+                >
+                  <option value={10}>10 comments</option>
+                  <option value={20}>20 comments</option>
+                  <option value={50}>50 comments</option>
+                  <option value={100}>100 comments</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">AI Filtering</label>
+                <div className="flex items-center space-x-3 h-12">
+                  <input
+                    type="checkbox"
+                    id="useAI"
+                    checked={useAI}
+                    onChange={(e) => setUseAI(e.target.checked)}
+                    className="w-4 h-4 text-pink-600 rounded focus:ring-pink-500"
+                  />
+                  <label htmlFor="useAI" className="text-sm text-gray-700 flex items-center space-x-1">
+                    <Sparkles className="w-4 h-4 text-purple-500" />
+                    <span>Use AI to detect best comments</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex space-x-4 mt-6">
+            <button
+              onClick={handleScrapePost}
+              disabled={!urlInput.trim() || scraping}
+              className="flex-1 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center space-x-2"
+            >
+              {scraping ? (
+                <>
+                  <Loader className="w-5 h-5 animate-spin" />
+                  <span>Scraping...</span>
+                </>
+              ) : (
+                <>
+                  <Instagram className="w-5 h-5" />
+                  <span>Scrape Comments</span>
+                </>
+              )}
+            </button>
+            <button
+              onClick={() => setShowAddForm(false)}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-xl font-semibold transition-colors"
+              disabled={scraping}
+            >
+              Cancel
+            </button>
+          </div>
+          
+          <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <h4 className="font-semibold text-blue-900 mb-2">How it works:</h4>
+            <ul className="text-sm text-blue-800 space-y-1">
+              <li>• We use Apify to extract real comments from the Instagram post</li>
+              <li>• Comments are automatically converted to testimonials</li>
+              <li>• AI filtering helps identify the most valuable feedback</li>
+              <li>• All testimonials require your approval before going live</li>
+              <li>• Processing typically takes 30-60 seconds depending on comment count</li>
+            </ul>
+          </div>
+          
+          {scraping && (
+            <div className="mt-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+              <div className="flex items-center space-x-3">
+                <Loader className="w-5 h-5 text-amber-600 animate-spin" />
+                <div>
+                  <h4 className="font-semibold text-amber-900">Scraping in progress...</h4>
+                  <p className="text-sm text-amber-800">This may take 30-60 seconds. Please don't close this page.</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Last Scrape Results */}
+      {lastScrapeResult && lastScrapeResult.length > 0 && (
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20 animate-slide-up">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              <span>Latest Scrape Results</span>
+            </h3>
+            <span className="text-sm text-gray-500">{lastScrapeResult.length} comments found</span>
+          </div>
+          
+          <div className="grid gap-4 max-h-96 overflow-y-auto">
+            {lastScrapeResult.map((comment, index) => (
+              <div key={comment.id} className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-lg p-4 border border-pink-200">
+                <div className="flex items-start space-x-3">
+                  <img
+                    src={comment.profileImage}
+                    alt={comment.username}
+                    className="w-10 h-10 rounded-full border-2 border-white shadow-md"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-2 mb-1">
+                      <span className="font-semibold text-gray-900">{comment.username}</span>
+                      {comment.isVerified && (
+                        <CheckCircle className="w-4 h-4 text-blue-500" />
+                      )}
+                    </div>
+                    <p className="text-gray-700 text-sm leading-relaxed mb-2">{comment.message}</p>
+                    <div className="flex items-center space-x-4 text-xs text-gray-500">
+                      <div className="flex items-center space-x-1">
+                        <ThumbsUp className="w-3 h-3" />
+                        <span>{comment.likeCount}</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <MessageCircle className="w-3 h-3" />
+                        <span>{comment.replyCount}</span>
+                      </div>
+                      <span>{new Date(comment.createdAt).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Import History */}
+      <div className="space-y-4">
+        {imports.map((importData, index) => {
+          const statusBadge = getStatusBadge(importData.status);
+          return (
+            <div 
+              key={importData.id} 
+              className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300 animate-slide-up"
+              style={{ animationDelay: `${200 + index * 100}ms` }}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-3 mb-2">
+                    <Instagram className="w-5 h-5 text-pink-600" />
+                    <h3 className="font-semibold text-gray-900">{importData.title}</h3>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium border ${statusBadge.color} flex items-center space-x-1`}>
+                      {statusBadge.icon && <statusBadge.icon className="w-3 h-3" />}
+                      <span>{statusBadge.label}</span>
+                    </span>
+                    {importData.use_ai_filter && (
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700 border border-purple-200 flex items-center space-x-1">
+                        <Sparkles className="w-3 h-3" />
+                        <span>AI Filtered</span>
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center space-x-2 text-sm text-gray-600 mb-4">
+                    <span className="font-mono bg-gray-100 px-2 py-1 rounded text-xs">{importData.url}</span>
+                    <button
+                      onClick={() => window.open(importData.url, '_blank')}
+                      className="text-blue-600 hover:text-blue-700"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
+                    <div>
+                      <span className="text-gray-500">Comments Found:</span>
+                      <span className="ml-2 font-semibold text-blue-600">{importData.total_comments_found}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Saved as Testimonials:</span>
+                      <span className="ml-2 font-semibold text-green-600">{importData.comments_saved}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Max Requested:</span>
+                      <span className="ml-2 font-semibold">{importData.max_comments_requested}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Success Rate:</span>
+                      <span className="ml-2 font-semibold text-purple-600">
+                        {importData.total_comments_found > 0 
+                          ? Math.round((importData.comments_saved / importData.total_comments_found) * 100)
+                          : 0}%
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-4 text-sm text-gray-500">
+                    <span>Created: {new Date(importData.created_at).toLocaleDateString()}</span>
+                    {importData.processed_at && (
+                      <span>Processed: {new Date(importData.processed_at).toLocaleDateString()}</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2 ml-4">
+                  {importData.status === 'completed' && importData.comments_saved > 0 && (
+                    <button 
+                      onClick={() => toggleComments(importData.id)}
+                      className="bg-pink-50 hover:bg-pink-100 text-pink-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors border border-pink-200 flex items-center space-x-1"
+                    >
+                      <Eye className="w-4 h-4" />
+                      <span>View Comments</span>
+                      {expandedComments === importData.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => toggleImportDetails(importData.id)}
+                    className="bg-pink-50 hover:bg-pink-100 text-pink-700 px-3 py-2 rounded-lg text-sm font-semibold transition-colors border border-pink-200 flex items-center space-x-1"
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    {expandedImport === importData.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Expanded Import Details */}
+              {expandedImport === importData.id && (
+                <div className="mt-4 pt-4 border-t border-gray-200 animate-slide-up">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="bg-pink-50 rounded-lg p-3 text-center border border-pink-200">
+                      <TrendingUp className="w-5 h-5 text-pink-600 mx-auto mb-1" />
+                      <div className="text-lg font-bold text-pink-900">
+                        {importData.total_comments_found > 0 
+                          ? Math.round((importData.comments_saved / importData.total_comments_found) * 100)
+                          : 0}%
+                      </div>
+                      <div className="text-xs text-pink-700">Success Rate</div>
+                    </div>
+                    
+                    <div className="bg-green-50 rounded-lg p-3 text-center border border-green-200">
+                      <MessageSquare className="w-5 h-5 text-green-600 mx-auto mb-1" />
+                      <div className="text-lg font-bold text-green-900">{importData.comments_saved}</div>
+                      <div className="text-xs text-green-700">Saved</div>
+                    </div>
+                    
+                    <div className="bg-blue-50 rounded-lg p-3 text-center border border-blue-200">
+                      <Eye className="w-5 h-5 text-blue-600 mx-auto mb-1" />
+                      <div className="text-lg font-bold text-blue-900">{importData.total_comments_found}</div>
+                      <div className="text-xs text-blue-700">Found</div>
+                    </div>
+                    
+                    <div className="bg-purple-50 rounded-lg p-3 text-center border border-purple-200">
+                      <Sparkles className="w-5 h-5 text-purple-600 mx-auto mb-1" />
+                      <div className="text-lg font-bold text-purple-900">{importData.use_ai_filter ? 'Yes' : 'No'}</div>
+                      <div className="text-xs text-purple-700">AI Filter</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Empty State */}
+      {imports.length === 0 && (
+        <div className="text-center py-16 animate-fade-in">
+          <div className="w-24 h-24 bg-gradient-to-br from-pink-100 to-purple-200 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Instagram className="w-12 h-12 text-pink-600" />
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-4">No Instagram imports yet</h3>
+          <p className="text-gray-600 mb-8 max-w-md mx-auto">
+            Start importing testimonials from Instagram post comments using our AI-powered scraper.
+          </p>
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 shadow-lg"
+          >
+            Import Your First Post
+          </button>
+        </div>
+      )}
     </div>
   );
 };

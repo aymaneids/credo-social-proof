@@ -7,6 +7,14 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  build: {
+    rollupOptions: {
+      input: {
+        main: './index.html',
+        widget: './public/widget-embed.js'
+      }
+    }
+  },
   server: {
     proxy: {
       '/api': {
@@ -14,6 +22,10 @@ export default defineConfig({
         changeOrigin: true,
       },
       '/widget': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      '/widget-embed.js': {
         target: 'http://localhost:3001',
         changeOrigin: true,
       }

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Layout, Play, Quote, Tag, X, Star, Save, Trash2, Grid3X3, List, Zap, Heart, Trophy, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Layout, Play, Quote, Tag, X, Star, Save, Trash2, Grid3X3, List, Zap, Heart, Trophy, ChevronLeft, ChevronRight, Sparkles, ArrowRight, Twitter, Instagram, Facebook, Youtube, LinkIcon, CheckCircle, MessageSquare } from 'lucide-react';
 import { useWidgets, useTestimonials, useCollectionLinks } from '../../hooks/useTestimonials';
+import { Widget } from '../../types';
+import WidgetPreview from '../widget/WidgetPreview';
 
-// Widget Preview Component
-const WidgetPreview: React.FC<{
+// Widget Preview Component - Using the main WidgetPreview component
+const EditWidgetPreview: React.FC<{
   type: string;
   theme: string;
   animationStyle: string;
@@ -25,40 +27,36 @@ const WidgetPreview: React.FC<{
   testimonials, 
   maxTestimonials 
 }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  // Create a widget object that matches the expected interface
+  const widget = {
+    id: 'preview',
+    widget_name: 'Preview Widget',
+    widget_type: type as 'wall' | 'carousel' | 'single' | 'masonry' | 'list' | 'floating' | 'featured' | 'awards' | 'infinite-scroll',
+    settings: {
+      theme: theme as 'light' | 'dark' | 'auto',
+      max_testimonials: maxTestimonials,
+      animation_style: animationStyle,
+      show_ratings: showRatings,
+      show_avatars: showAvatars,
+      show_company: showCompany,
+      autoplay: autoplay,
+      selected_sources: [],
+      filter_tags: []
+    },
+    embed_code: '',
+    views_count: 0,
+    clicks_count: 0,
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    user_id: ''
+  };
+
   const displayTestimonials = testimonials.slice(0, maxTestimonials);
-
-  // Auto-advance carousel
-  React.useEffect(() => {
-    if (type === 'carousel' && autoplay && displayTestimonials.length > 1) {
-      const interval = setInterval(() => {
-        setCurrentIndex(prev => (prev + 1) % displayTestimonials.length);
-      }, 3000);
-      return () => clearInterval(interval);
-    }
-  }, [type, autoplay, displayTestimonials.length]);
-
-  const getAnimationClass = () => {
-    switch (animationStyle) {
-      case 'fade': return 'animate-fade-in';
-      case 'slide': return 'animate-slide-up';
-      case 'scale': return 'animate-scale-in';
-      case 'bounce': return 'animate-bounce';
-      default: return '';
-    }
-  };
-
-  const getThemeClasses = () => {
-    switch (theme) {
-      case 'dark': return 'bg-gray-900 text-white';
-      case 'auto': return 'bg-gray-100 text-gray-900';
-      default: return 'bg-white text-gray-900';
-    }
-  };
 
   if (displayTestimonials.length === 0) {
     return (
-      <div className={`rounded-xl p-6 ${getThemeClasses()} border-2 border-dashed border-gray-300`}>
+      <div className={`rounded-xl p-6 border-2 border-dashed border-gray-300`}>
         <div className="text-center text-gray-500">
           <Layout className="w-8 h-8 mx-auto mb-2" />
           <p className="text-sm">No testimonials match your criteria</p>
@@ -67,112 +65,13 @@ const WidgetPreview: React.FC<{
     );
   }
 
-  const TestimonialCard: React.FC<{ testimonial: any; index?: number }> = ({ testimonial, index = 0 }) => (
-    <div className={`${getAnimationClass()} ${getThemeClasses()} rounded-xl p-6 border ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200/50'} shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 group backdrop-blur-sm`} 
-         style={{ animationDelay: `${index * 100}ms` }}>
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 to-purple-50/30 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-      
-      <div className="relative z-10">
-        {showRatings && (
-          <div className="flex items-center mb-4 group-hover:scale-105 transition-transform duration-200">
-            {[...Array(testimonial.rating || 5)].map((_, i) => (
-              <Star key={i} className="w-5 h-5 text-yellow-400 fill-current" />
-            ))}
-          </div>
-        )}
-        
-        <blockquote className={`text-base leading-relaxed mb-6 font-medium ${theme === 'dark' ? 'text-gray-300' : 'text-gray-800'} group-hover:text-gray-900 transition-colors duration-200`}>
-          "{testimonial.content}"
-        </blockquote>
-        
-        <div className="flex items-center space-x-3 group-hover:transform group-hover:scale-105 transition-all duration-200">
-          {showAvatars && (
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg ring-2 ring-white group-hover:ring-4 group-hover:ring-blue-100 transition-all duration-200">
-              <span className="text-white font-semibold text-sm">
-                {testimonial.client_name?.[0] || 'U'}
-              </span>
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <div className={`font-semibold text-sm ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-              {testimonial.client_name || 'Anonymous'}
-            </div>
-            {showCompany && testimonial.company && (
-              <div className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                {testimonial.company}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+  return (
+    <WidgetPreview 
+      widget={widget}
+      testimonials={displayTestimonials}
+      className=""
+    />
   );
-
-  // Render based on widget type
-  switch (type) {
-    case 'wall':
-      return (
-        <div className={`rounded-xl p-4 ${getThemeClasses()} border ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
-          <div className="grid grid-cols-1 gap-3">
-            {displayTestimonials.map((testimonial, index) => (
-              <TestimonialCard key={testimonial.id} testimonial={testimonial} index={index} />
-            ))}
-          </div>
-        </div>
-      );
-
-    case 'carousel':
-      return (
-        <div className="relative group">
-          <div className="relative overflow-hidden rounded-xl">
-            <div 
-              className="flex transition-transform duration-500 ease-out"
-              style={{ transform: `translateX(-${currentIndex * 100}%)` }}
-            >
-              {displayTestimonials.map((testimonial) => (
-                <div key={testimonial.id} className="w-full flex-shrink-0 px-4 py-6 text-center">
-                  <TestimonialCard testimonial={testimonial} />
-                </div>
-              ))}
-            </div>
-          </div>
-          
-          {displayTestimonials.length > 1 && (
-            <>
-              <button
-                onClick={() => setCurrentIndex(prev => prev === 0 ? displayTestimonials.length - 1 : prev - 1)}
-                className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/90 hover:bg-white shadow-lg transition-all duration-200 hover:scale-110 opacity-0 group-hover:opacity-100 z-10"
-              >
-                <ChevronLeft className="w-5 h-5 text-gray-700" />
-              </button>
-              <button
-                onClick={() => setCurrentIndex(prev => (prev + 1) % displayTestimonials.length)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/90 hover:bg-white shadow-lg transition-all duration-200 hover:scale-110 opacity-0 group-hover:opacity-100 z-10"
-              >
-                <ChevronRight className="w-5 h-5 text-gray-700" />
-              </button>
-            </>
-          )}
-        </div>
-      );
-
-    case 'single':
-      return (
-        <div className={`rounded-xl p-4 ${getThemeClasses()} border ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
-          <TestimonialCard testimonial={displayTestimonials[0]} />
-        </div>
-      );
-
-    default:
-      return (
-        <div className={`rounded-xl p-6 ${getThemeClasses()} border-2 border-dashed border-gray-300`}>
-          <div className="text-center text-gray-500">
-            <Layout className="w-8 h-8 mx-auto mb-2" />
-            <p className="text-sm">Widget type not implemented yet</p>
-          </div>
-        </div>
-      );
-  }
 };
 
 const EditWidget: React.FC = () => {
@@ -184,8 +83,8 @@ const EditWidget: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    type: 'wall' as 'wall' | 'carousel' | 'single',
-    theme: 'light' as 'light' | 'dark' | 'auto',
+    type: 'wall',
+    theme: 'light',
     max_testimonials: 10,
     animation_style: 'fade',
     show_ratings: true,
@@ -196,6 +95,7 @@ const EditWidget: React.FC = () => {
 
   const { widgets, updateWidget, deleteWidget } = useWidgets();
   const { testimonials } = useTestimonials();
+  const { links } = useCollectionLinks();
 
   // Load widget data
   useEffect(() => {
@@ -204,21 +104,22 @@ const EditWidget: React.FC = () => {
       if (widget) {
         setFormData({
           name: widget.widget_name,
-          type: widget.widget_type as 'wall' | 'carousel' | 'single',
-          theme: widget.settings?.theme as 'light' | 'dark' | 'auto' || 'light',
-          max_testimonials: widget.settings?.max_testimonials || 10,
-          animation_style: widget.settings?.animation_style || 'fade',
-          show_ratings: widget.settings?.show_ratings ?? true,
-          show_avatars: widget.settings?.show_avatars ?? true,
-          show_company: widget.settings?.show_company ?? true,
-          autoplay: widget.settings?.autoplay ?? false
+          type: widget.widget_type,
+          theme: widget.settings.theme,
+          max_testimonials: widget.settings.max_testimonials,
+          animation_style: widget.settings.animation_style,
+          show_ratings: widget.settings.show_ratings,
+          show_avatars: widget.settings.show_avatars,
+          show_company: widget.settings.show_company,
+          autoplay: widget.settings.autoplay
         });
-        setSelectedSources(widget.settings?.selected_sources || ['direct']);
-        setTags(widget.settings?.filter_tags || []);
+        setSelectedSources(widget.settings.selected_sources || ['direct']);
+        setTags(widget.settings.filter_tags || []);
       }
     }
   }, [widgetId, widgets]);
 
+  // Calculate real testimonial counts by source
   const getSourceCounts = () => {
     const counts = {
       direct: testimonials.filter(t => t.source === 'direct').length,
@@ -287,9 +188,9 @@ const EditWidget: React.FC = () => {
     try {
       await updateWidget(widgetId, {
         widget_name: formData.name,
-        widget_type: formData.type,
+        widget_type: formData.type as 'wall' | 'carousel' | 'single' | 'masonry' | 'list' | 'floating' | 'featured' | 'awards' | 'infinite-scroll',
         settings: {
-          theme: formData.theme,
+          theme: formData.theme as 'light' | 'dark' | 'auto',
           max_testimonials: formData.max_testimonials,
           animation_style: formData.animation_style,
           show_ratings: formData.show_ratings,
@@ -626,7 +527,7 @@ const EditWidget: React.FC = () => {
         {/* Preview Column */}
         <div className="lg:col-span-1">
           <div className="sticky top-6">
-            <WidgetPreview
+            <EditWidgetPreview
               type={formData.type}
               theme={formData.theme}
               animationStyle={formData.animation_style}

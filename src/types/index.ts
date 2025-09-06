@@ -66,6 +66,21 @@ export interface WidgetPreview {
   updated_at: string;
 }
 
+export interface InstagramImport {
+  id: string;
+  user_id: string;
+  url: string;
+  title: string;
+  total_comments_found: number;
+  comments_saved: number;
+  max_comments_requested: number;
+  use_ai_filter: boolean;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  processed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AnalyticsData {
   totalTestimonials: number;
   pendingApproval: number;

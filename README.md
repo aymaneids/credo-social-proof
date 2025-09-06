@@ -86,8 +86,34 @@ To test your widgets on external websites:
 
 The embed code looks like:
 ```html
-<script src="http://localhost:5173/widget/your-widget-id.js" async></script>
+<script src="http://localhost:5173/widget-embed.js" data-widget-id="your-widget-id" async></script>
 ```
+
+### Widget Embed Code Instructions
+
+1. **Copy the embed code** from your widget dashboard
+2. **Paste it anywhere** in your website's HTML where you want testimonials to appear
+3. **The widget loads automatically** - no additional setup required
+4. **Works on any domain** - fully cross-origin compatible
+
+#### Embed Code Format
+```html
+<script src="https://your-domain.com/widget-embed.js" data-widget-id="your-widget-id" async></script>
+```
+
+#### Features
+- ✅ **Self-contained** - includes all CSS and JavaScript
+- ✅ **Cross-origin compatible** - works on any website
+- ✅ **Responsive design** - adapts to any container width
+- ✅ **Error handling** - graceful fallbacks if loading fails
+- ✅ **Fast loading** - optimized for performance
+- ✅ **Analytics tracking** - automatically tracks views and clicks
+
+#### Troubleshooting
+- If the widget doesn't appear, check the browser console for errors
+- Ensure the widget ID is correct and the widget is active
+- Verify your website allows external scripts to load
+- For HTTPS sites, make sure the embed script URL uses HTTPS
 ## Usage Guide
 
 ### Asking Questions

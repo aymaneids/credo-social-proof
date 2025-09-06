@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { Star, ArrowRight, Zap, Shield, Users } from 'lucide-react';
+import { Star, ArrowRight, CheckCircle, Zap, Shield, Users } from 'lucide-react';
 import WidgetPreview from './WidgetPreview';
 import { useWidgetPreviews } from '../../hooks/useTestimonials';
 import { WidgetPreview as WidgetPreviewType } from '../../types';
@@ -31,7 +30,7 @@ const DemoLandingPage: React.FC = () => {
     };
 
     fetchPreview();
-  }, [previewId]);
+  }, [previewId]); // Removed getPreviewByUrl dependency to prevent re-renders
 
   if (loading) {
     return (
@@ -200,19 +199,19 @@ const DemoLandingPage: React.FC = () => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div>
                   <span className="text-gray-500">Type:</span>
-                  <span className="ml-2 font-medium capitalize">{widget.widget_type}</span>
+                  <span className="ml-2 font-medium capitalize">{widget.type}</span>
                 </div>
                 <div>
                   <span className="text-gray-500">Theme:</span>
-                  <span className="ml-2 font-medium capitalize">{widget.settings.theme}</span>
+                  <span className="ml-2 font-medium capitalize">{widget.theme}</span>
                 </div>
                 <div>
                   <span className="text-gray-500">Max Items:</span>
-                  <span className="ml-2 font-medium">{widget.settings.max_testimonials}</span>
+                  <span className="ml-2 font-medium">{widget.max_testimonials}</span>
                 </div>
                 <div>
                   <span className="text-gray-500">Animation:</span>
-                  <span className="ml-2 font-medium capitalize">{widget.settings.animation_style}</span>
+                  <span className="ml-2 font-medium capitalize">{widget.animation_style}</span>
                 </div>
               </div>
               
