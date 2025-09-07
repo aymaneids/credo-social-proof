@@ -30,6 +30,10 @@ if (!APIFY_API_TOKEN) {
 
 console.log(`Using Apify Actor: ${APIFY_ACTOR_ID}`);
 console.log(`API Token configured: ${APIFY_API_TOKEN ? 'Yes' : 'No'}`);
+console.log(`API Token length: ${APIFY_API_TOKEN ? APIFY_API_TOKEN.length : 0}`);
+if (APIFY_API_TOKEN) {
+  console.log(`API Token starts with: ${APIFY_API_TOKEN.substring(0, 10)}...`);
+}
 
 const app = express();
 const PORT = process.env.PORT || 3001;
