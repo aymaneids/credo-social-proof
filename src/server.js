@@ -81,7 +81,7 @@ const extractInstagramPostId = (url) => {
 // Apply AI filtering to comments
 const applyAIFilter = (comments) => {
   return comments.filter(comment => {
-    const message = comment.message?.toLowerCase() || '';
+    const message = (comment.text || comment.message || '').toLowerCase();
     
     if (message.length < 10) return false;
     
@@ -97,7 +97,7 @@ const applyAIFilter = (comments) => {
     const hasPositiveWords = positiveWords.some(word => message.includes(word));
     const isSpam = /follow.*back|check.*bio|dm.*me|click.*link|buy.*now|free.*money/i.test(message);
     
-    return hasPositiveWords && !isSpam && (comment.likeCount || 0) > 0;
+    return hasPositiveWords && !isSpam;
   });
 };
 
@@ -152,16 +152,10 @@ app.post('/api/instagram/scrape', async (req, res) => {
     }
 
     try {
-      // Extract post ID from URL
-      const postId = extractInstagramPostId(url);
-      console.log(`Extracted post ID: ${postId}`);
-      
-      // Prepare Apify Actor input - Use either startUrls OR postIds, not both
-      // According to docs, postIds is more efficient
+      // Prepare Apify Actor input using new API format
       const actorInput = {
-        postIds: [postId],
-        maxItems: Math.min(maxComments, 1000)
-        // Removed customMapFunction as it can cause bans according to docs
+        directUrls: [url],
+        resultsLimit: Math.min(maxComments, 1000)
       };
 
       console.log('Calling Apify with input:', JSON.stringify(actorInput, null, 2));
@@ -169,6 +163,8 @@ app.post('/api/instagram/scrape', async (req, res) => {
       // Call Apify Actor with timeout and better error handling
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+      
+      let comments = [];
       
       try {
         const response = await fetch(
@@ -202,44 +198,12 @@ app.post('/api/instagram/scrape', async (req, res) => {
           throw new Error(`Apify API error: ${response.status} - ${errorText}`);
         }
 
-        const comments = await response.json();
+        comments = await response.json();
         console.log(`Apify returned ${comments?.length || 0} comments`);
 
         if (!Array.isArray(comments)) {
           console.error('Invalid response format:', comments);
           throw new Error('Invalid response format from Apify API');
-        }
-        
-        // If no comments returned, try with startUrls as fallback
-        if (comments.length === 0) {
-          console.log('No comments with postIds, trying with startUrls as fallback...');
-          
-          const fallbackInput = {
-            startUrls: [url],
-            maxItems: Math.min(maxComments, 1000)
-          };
-          
-          console.log('Trying fallback with input:', JSON.stringify(fallbackInput, null, 2));
-          
-          const fallbackResponse = await fetch(
-            `https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}/run-sync-get-dataset-items?token=${APIFY_API_TOKEN}`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(fallbackInput),
-              signal: controller.signal
-            }
-          );
-          
-          if (fallbackResponse.ok) {
-            const fallbackComments = await fallbackResponse.json();
-            if (Array.isArray(fallbackComments) && fallbackComments.length > 0) {
-              console.log(`Fallback returned ${fallbackComments.length} comments`);
-              comments.push(...fallbackComments);
-            }
-          }
         }
       } catch (fetchError) {
         clearTimeout(timeoutId);
@@ -264,34 +228,34 @@ app.post('/api/instagram/scrape', async (req, res) => {
 
       for (const comment of commentsToSave) {
         try {
-          if (!comment.message || comment.message.trim().length < 3) {
+          // Check if comment has text (the new API uses 'text' instead of 'message')
+          const commentText = comment.text || comment.message;
+          if (!commentText || commentText.trim().length < 3) {
             continue;
           }
           
           let rating = 5;
-          if ((comment.likeCount || 0) < 5) rating = 3;
-          else if ((comment.likeCount || 0) < 10) rating = 4;
+          // The new API doesn't seem to include like counts in the example
+          // We'll default to a good rating
           
           const testimonialData = {
             user_id: userId,
-            client_name: comment.user?.username || 'Instagram User',
-            client_email: `${comment.user?.username || 'user'}@instagram.com`,
-            content: comment.message,
+            client_name: comment.ownerUsername || 'Instagram User',
+            client_email: `${comment.ownerUsername || 'user'}@instagram.com`,
+            content: commentText,
             rating: rating,
             source: 'instagram',
             status: 'pending',
             instagram_data: {
               comment_id: comment.id,
-              instagram_user_id: comment.userId,
-              username: comment.user?.username,
-              profile_image: comment.user?.image,
-              is_verified: comment.user?.isVerified || false,
-              like_count: comment.likeCount || 0,
-              reply_count: comment.replyCount || 0,
-              created_at: comment.createdAt,
-              post_url: url,
-              is_ranked: comment.isRanked || false,
-              share_enabled: comment.shareEnabled || false
+              instagram_user_id: comment.ownerId,
+              username: comment.ownerUsername,
+              profile_image: comment.ownerProfilePicUrl,
+              is_verified: comment.ownerIsVerified || false,
+              position: comment.position,
+              timestamp: comment.timestamp,
+              post_id: comment.postId,
+              post_url: url
             }
           };
           
@@ -300,12 +264,12 @@ app.post('/api/instagram/scrape', async (req, res) => {
             .insert(testimonialData);
 
           if (error) {
-            errors.push(`Failed to save comment from ${comment.user?.username || 'unknown'}: ${error.message}`);
+            errors.push(`Failed to save comment from ${comment.ownerUsername || 'unknown'}: ${error.message}`);
           } else {
             saved++;
           }
         } catch (error) {
-          errors.push(`Error processing comment from ${comment.user?.username || 'unknown'}: ${error.message}`);
+          errors.push(`Error processing comment from ${comment.ownerUsername || 'unknown'}: ${error.message}`);
         }
       }
 
@@ -329,13 +293,13 @@ app.post('/api/instagram/scrape', async (req, res) => {
         errors,
         comments: commentsToSave.map(comment => ({
           id: comment.id,
-          username: comment.user?.username || 'unknown',
-          message: comment.message,
-          likeCount: comment.likeCount || 0,
-          replyCount: comment.replyCount || 0,
-          isVerified: comment.user?.isVerified || false,
-          profileImage: comment.user?.image || '',
-          createdAt: new Date((comment.createdAt || Date.now() / 1000) * 1000).toISOString()
+          username: comment.ownerUsername || 'unknown',
+          message: comment.text || comment.message,
+          likeCount: 0, // New API doesn't provide like counts
+          replyCount: 0, // New API doesn't provide reply counts
+          isVerified: comment.ownerIsVerified || false,
+          profileImage: comment.ownerProfilePicUrl || '',
+          createdAt: comment.timestamp || new Date().toISOString()
         }))
       });
 
