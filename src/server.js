@@ -11,6 +11,8 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// === CONFIGURATION ===
+
 // Supabase client
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -26,10 +28,17 @@ if (!APIFY_API_TOKEN) {
   process.exit(1);
 }
 
+console.log(`Using Apify Actor: ${APIFY_ACTOR_ID}`);
+console.log(`API Token configured: ${APIFY_API_TOKEN ? 'Yes' : 'No'}`);
+console.log(`API Token length: ${APIFY_API_TOKEN ? APIFY_API_TOKEN.length : 0}`);
+if (APIFY_API_TOKEN) {
+  console.log(`API Token starts with: ${APIFY_API_TOKEN.substring(0, 10)}...`);
+}
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
+// === MIDDLEWARE ===
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -37,16 +46,19 @@ app.use(cors({
   credentials: false
 }));
 app.use(express.json());
+// Serve static files from dist and public directories
 app.use(express.static(path.join(__dirname, '../dist')));
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Handle preflight requests
+// === UTILITY FUNCTIONS ===
 app.options('*', (req, res) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id');
   res.sendStatus(200);
 });
+
+// === INSTAGRAM API ENDPOINTS ===
 
 // Extract Instagram post ID from URL
 const extractInstagramPostId = (url) => {
@@ -109,6 +121,16 @@ app.post('/api/instagram/scrape', async (req, res) => {
     }
 
     console.log(`Starting Instagram scrape for user ${userId}: ${url}`);
+    
+    // Validate that the URL is accessible (basic check)
+    try {
+      const urlCheck = new URL(url);
+      if (!urlCheck.hostname.includes('instagram.com')) {
+        throw new Error('URL must be from instagram.com');
+      }
+    } catch (urlError) {
+      throw new Error('Invalid URL format');
+    }
 
     // Create import record
     const { data: importRecord, error: importError } = await supabase
@@ -134,39 +156,97 @@ app.post('/api/instagram/scrape', async (req, res) => {
       const postId = extractInstagramPostId(url);
       console.log(`Extracted post ID: ${postId}`);
       
-      // Prepare Apify Actor input
+      // Prepare Apify Actor input - Use either startUrls OR postIds, not both
+      // According to docs, postIds is more efficient
       const actorInput = {
-        startUrls: [url],
         postIds: [postId],
-        maxItems: Math.min(maxComments, 1000),
-        customMapFunction: "(object) => { return {...object} }"
+        maxItems: Math.min(maxComments, 1000)
+        // Removed customMapFunction as it can cause bans according to docs
       };
 
       console.log('Calling Apify with input:', JSON.stringify(actorInput, null, 2));
 
-      // Call Apify Actor
-      const response = await fetch(
-        `https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}/run-sync-get-dataset-items?token=${APIFY_API_TOKEN}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(actorInput)
+      // Call Apify Actor with timeout and better error handling
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+      
+      try {
+        const response = await fetch(
+          `https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}/run-sync-get-dataset-items?token=${APIFY_API_TOKEN}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(actorInput),
+            signal: controller.signal
+          }
+        );
+        
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Apify API error:', response.status, errorText);
+          
+          // Try to parse error details
+          try {
+            const errorData = JSON.parse(errorText);
+            if (errorData.error?.message) {
+              throw new Error(`Apify Actor failed: ${errorData.error.message}`);
+            }
+          } catch (parseError) {
+            // If we can't parse, use the raw error
+          }
+          
+          throw new Error(`Apify API error: ${response.status} - ${errorText}`);
         }
-      );
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Apify API error:', response.status, errorText);
-        throw new Error(`Apify API error: ${response.status} - ${errorText}`);
-      }
+        const comments = await response.json();
+        console.log(`Apify returned ${comments?.length || 0} comments`);
 
-      const comments = await response.json();
-      console.log(`Apify returned ${comments.length} comments`);
-
-      if (!Array.isArray(comments)) {
-        throw new Error('Invalid response format from Apify API');
+        if (!Array.isArray(comments)) {
+          console.error('Invalid response format:', comments);
+          throw new Error('Invalid response format from Apify API');
+        }
+        
+        // If no comments returned, try with startUrls as fallback
+        if (comments.length === 0) {
+          console.log('No comments with postIds, trying with startUrls as fallback...');
+          
+          const fallbackInput = {
+            startUrls: [url],
+            maxItems: Math.min(maxComments, 1000)
+          };
+          
+          console.log('Trying fallback with input:', JSON.stringify(fallbackInput, null, 2));
+          
+          const fallbackResponse = await fetch(
+            `https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}/run-sync-get-dataset-items?token=${APIFY_API_TOKEN}`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(fallbackInput),
+              signal: controller.signal
+            }
+          );
+          
+          if (fallbackResponse.ok) {
+            const fallbackComments = await fallbackResponse.json();
+            if (Array.isArray(fallbackComments) && fallbackComments.length > 0) {
+              console.log(`Fallback returned ${fallbackComments.length} comments`);
+              comments.push(...fallbackComments);
+            }
+          }
+        }
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          throw new Error('Request timeout - Instagram post might be taking too long to process');
+        }
+        throw fetchError;
       }
 
       let commentsToSave = comments;
@@ -271,7 +351,18 @@ app.post('/api/instagram/scrape', async (req, res) => {
         })
         .eq('id', importRecord.id);
 
-      throw scrapeError;
+      // Provide more helpful error messages
+      let userFriendlyMessage = scrapeError.message;
+      
+      if (scrapeError.message.includes('Actor run did not succeed')) {
+        userFriendlyMessage = 'Instagram post could not be processed. This might happen if the post is private, has comments disabled, or if Instagram is blocking automated access. Please try a different public post.';
+      } else if (scrapeError.message.includes('timeout')) {
+        userFriendlyMessage = 'Request timed out. The Instagram post might be taking too long to process. Please try again or try a post with fewer comments.';
+      } else if (scrapeError.message.includes('Invalid Instagram URL')) {
+        userFriendlyMessage = 'Invalid Instagram URL format. Please make sure you\'re using a direct link to an Instagram post (e.g., https://www.instagram.com/p/ABC123/).';
+      }
+      
+      throw new Error(userFriendlyMessage);
     }
 
   } catch (error) {
@@ -312,7 +403,9 @@ app.get('/api/instagram/imports', async (req, res) => {
   }
 });
 
-// Widget API routes
+// === WIDGET API ENDPOINTS ===
+
+// Widget data endpoint
 app.get('/api/widget/:widgetId', async (req, res) => {
   try {
     const { widgetId } = req.params;
@@ -404,6 +497,8 @@ app.post('/api/widget/:widgetId/click', async (req, res) => {
   }
 });
 
+// === WIDGET EMBED ENDPOINTS ===
+
 // Widget embed script serving
 app.get('/widget-embed.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
@@ -422,19 +517,90 @@ app.get('/widget/:widgetId.js', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/widget-embed.js'));
 });
 
+// === UTILITY ENDPOINTS ===
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    port: PORT,
+    apify: {
+      configured: !!APIFY_API_TOKEN,
+      actor: APIFY_ACTOR_ID
+    }
+  });
 });
 
-// Serve React app for all other routes
+// Test Apify connection endpoint
+app.get('/api/test-apify', async (req, res) => {
+  try {
+    if (!APIFY_API_TOKEN) {
+      return res.status(500).json({ error: 'APIFY_API_TOKEN not configured' });
+    }
+    
+    // Test API connection by getting actor info
+    const response = await fetch(
+      `https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}?token=${APIFY_API_TOKEN}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Apify test error:', response.status, errorText);
+      return res.status(response.status).json({ 
+        error: 'Apify API test failed', 
+        details: errorText,
+        status: response.status
+      });
+    }
+    
+    const actorInfo = await response.json();
+    res.json({ 
+      success: true, 
+      message: 'Apify connection successful',
+      actor: {
+        id: actorInfo.data?.id,
+        name: actorInfo.data?.name,
+        isPublic: actorInfo.data?.isPublic
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error testing Apify connection:', error);
+    res.status(500).json({ 
+      error: 'Failed to test Apify connection',
+      details: error.message
+    });
+  }
+});
+
+// === FRONTEND SERVING ===
+
+// Serve React app for all other routes (SPA fallback)
 app.get('*', (req, res) => {
+  // Don't serve index.html for API routes
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ error: 'API endpoint not found' });
+  }
+  
   res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
+// === SERVER STARTUP ===
+
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Widget API available at http://localhost:${PORT}/api/widget/:widgetId`);
-  console.log(`Instagram API available at http://localhost:${PORT}/api/instagram/scrape`);
-  console.log(`Instagram imports available at http://localhost:${PORT}/api/instagram/imports`);
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
+  console.log(`🎨 Widget API: http://localhost:${PORT}/api/widget/:widgetId`);
+  console.log(`📷 Instagram API: http://localhost:${PORT}/api/instagram/scrape`);
+  console.log(`📋 Instagram imports: http://localhost:${PORT}/api/instagram/imports`);
+  console.log(`🌐 Frontend: http://localhost:${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });

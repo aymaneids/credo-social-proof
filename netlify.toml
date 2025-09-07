@@ -1,0 +1,26 @@
+[build]
+  publish = "dist"
+  command = "npm run build"
+
+[functions]
+  directory = "netlify/functions"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/server/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/widget-embed.js"
+  to = "/.netlify/functions/server/widget-embed.js"
+  status = 200
+
+[[redirects]]
+  from = "/widget/*"
+  to = "/.netlify/functions/server/widget/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

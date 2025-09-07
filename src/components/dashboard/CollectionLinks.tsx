@@ -79,14 +79,12 @@ const CollectionLinks: React.FC = () => {
         name: '',
         description: '',
         slug: '',
-        slug: '',
         custom_message: '',
         allow_video: false,
         require_rating: true,
         collect_email: true,
         is_active: true
       });
-      setSlugPreview('');
       setSlugPreview('');
     } catch (error) {
       console.error('Error creating link:', error);
@@ -189,39 +187,6 @@ const CollectionLinks: React.FC = () => {
                     placeholder="q3-feedback"
                     className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                     required
-                  />
-                </div>
-                {slugPreview && (
-                  <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <p className="text-sm text-blue-800">
-                      <strong>Your public link will be:</strong>
-                    </p>
-                    <p className="text-sm font-mono text-blue-900 break-all">{slugPreview}</p>
-                  </div>
-                )}
-                {!currentUser?.username && (
-                  <div className="mt-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
-                    <p className="text-sm text-amber-800">
-                      <strong>Note:</strong> You need to set a username in your profile to use custom URLs. For now, a standard link will be created.
-                    </p>
-                  </div>
-                )}
-              </div>
-              
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Custom Link Name</label>
-                <p className="text-xs text-gray-500 mb-2">
-                  This will be part of your public URL. Use only lowercase letters, numbers, and hyphens.
-                </p>
-                <div className="relative">
-                  <LinkIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input
-                    type="text"
-                    name="slug"
-                    value={formData.slug}
-                    onChange={handleInputChange}
-                    placeholder="q3-feedback"
-                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                   />
                 </div>
                 {slugPreview && (
