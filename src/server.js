@@ -121,6 +121,8 @@ app.post('/api/instagram/scrape', async (req, res) => {
     }
 
     console.log(`Starting Instagram scrape for user ${userId}: ${url}`);
+    console.log(`Post ID: ${extractInstagramPostId(url)}`);
+    console.log(`Max comments requested: ${maxComments}`);
     
     // Validate that the URL is accessible (basic check)
     try {
@@ -222,8 +224,8 @@ app.post('/api/instagram/scrape', async (req, res) => {
         console.log(`AI filter reduced to ${commentsToSave.length} comments`);
       }
 
-      // Save comments as testimonials
-      let saved = 0;
+      // Save comments to instagram_comments table for later manual conversion
+      let savedComments = 0;
       const errors = [];
 
       for (const comment of commentsToSave) {
@@ -234,39 +236,56 @@ app.post('/api/instagram/scrape', async (req, res) => {
             continue;
           }
           
-          let rating = 5;
-          // The new API doesn't seem to include like counts in the example
-          // We'll default to a good rating
-          
-          const testimonialData = {
+          const commentData = {
             user_id: userId,
-            client_name: comment.ownerUsername || 'Instagram User',
-            client_email: `${comment.ownerUsername || 'user'}@instagram.com`,
-            content: commentText,
-            rating: rating,
-            source: 'instagram',
-            status: 'pending',
-            instagram_data: {
-              comment_id: comment.id,
-              instagram_user_id: comment.ownerId,
-              username: comment.ownerUsername,
-              profile_image: comment.ownerProfilePicUrl,
-              is_verified: comment.ownerIsVerified || false,
-              position: comment.position,
-              timestamp: comment.timestamp,
-              post_id: comment.postId,
-              post_url: url
-            }
+            import_id: importRecord.id,
+            comment_id: comment.id || `comment_${Date.now()}_${Math.random()}`,
+            username: comment.ownerUsername || 'Instagram User',
+            message: commentText,
+            like_count: 0, // New API doesn't provide like counts
+            reply_count: 0, // New API doesn't provide reply counts
+            is_verified: comment.ownerIsVerified || false,
+            profile_image: comment.ownerProfilePicUrl || '',
+            comment_created_at: comment.timestamp ? new Date(comment.timestamp).toISOString() : new Date().toISOString(),
+            is_saved_as_testimonial: false
           };
           
+          // For duplicate URLs, append import ID to comment_id to avoid conflicts
+          // This ensures ALL comments are saved on rescans, even if they're duplicates
+          const existingUrlImports = await supabase
+            .from('instagram_imports')
+            .select('id')
+            .eq('url', importRecord.url)
+            .eq('user_id', userId)
+            .neq('id', importRecord.id);
+            
+          if (existingUrlImports.data && existingUrlImports.data.length > 0) {
+            // Always append import ID for rescans to save ALL comments
+            commentData.comment_id = `${commentData.comment_id}_import_${importRecord.id}`;
+          }
+          
           const { error } = await supabase
-            .from('testimonials')
-            .insert(testimonialData);
+            .from('instagram_comments')
+            .insert(commentData);
 
           if (error) {
-            errors.push(`Failed to save comment from ${comment.ownerUsername || 'unknown'}: ${error.message}`);
+            // If it's still a duplicate after our ID modification, try with timestamp
+            if (error.message.includes('unique_user_comment_id')) {
+              commentData.comment_id = `${commentData.comment_id}_${Date.now()}`;
+              const { error: retryError } = await supabase
+                .from('instagram_comments')
+                .insert(commentData);
+              
+              if (retryError) {
+                errors.push(`Failed to save comment from ${comment.ownerUsername || 'unknown'}: ${retryError.message}`);
+              } else {
+                savedComments++;
+              }
+            } else {
+              errors.push(`Failed to save comment from ${comment.ownerUsername || 'unknown'}: ${error.message}`);
+            }
           } else {
-            saved++;
+            savedComments++;
           }
         } catch (error) {
           errors.push(`Error processing comment from ${comment.ownerUsername || 'unknown'}: ${error.message}`);
@@ -278,19 +297,21 @@ app.post('/api/instagram/scrape', async (req, res) => {
         .from('instagram_imports')
         .update({
           total_comments_found: comments.length,
-          comments_saved: saved,
+          comments_saved: savedComments, // This represents comments stored in instagram_comments table
           status: 'completed',
           processed_at: new Date().toISOString()
         })
         .eq('id', importRecord.id);
 
-      console.log(`Instagram scrape completed: ${saved} testimonials saved, ${errors.length} errors`);
+      console.log(`Instagram scrape completed: ${savedComments} comments saved to database, ${errors.length} errors`);
+      console.log(`Post ID: ${extractInstagramPostId(importRecord.url)} - Comments saved: ${savedComments}/${comments.length}`);
 
       res.json({
         success: true,
         totalFound: comments.length,
-        saved,
+        saved: savedComments,
         errors,
+        importId: importRecord.id,
         comments: commentsToSave.map(comment => ({
           id: comment.id,
           username: comment.ownerUsername || 'unknown',
@@ -331,6 +352,189 @@ app.post('/api/instagram/scrape', async (req, res) => {
 
   } catch (error) {
     console.error('Error in Instagram scrape endpoint:', error);
+    res.status(500).json({ 
+      error: error.message || 'Internal server error' 
+    });
+  }
+});
+
+// Get comments for a specific import
+app.get('/api/instagram/comments/:importId', async (req, res) => {
+  try {
+    const { importId } = req.params;
+    const userId = req.headers['x-user-id'];
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User ID required' });
+    }
+
+    if (!importId) {
+      return res.status(400).json({ error: 'Import ID is required' });
+    }
+
+    // Get comments for this import
+    const { data: comments, error } = await supabase
+      .from('instagram_comments')
+      .select('*')
+      .eq('import_id', importId)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching comments:', error);
+      throw error;
+    }
+
+    res.json({ comments: comments || [] });
+
+  } catch (error) {
+    console.error('Error fetching Instagram comments:', error);
+    res.status(500).json({ 
+      error: error.message || 'Internal server error' 
+    });
+  }
+});
+
+// Save individual comment as testimonial endpoint
+app.post('/api/instagram/save-comment', async (req, res) => {
+  try {
+    const { commentId } = req.body;
+    const userId = req.headers['x-user-id'];
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User ID required' });
+    }
+
+    if (!commentId) {
+      return res.status(400).json({ error: 'Comment ID is required' });
+    }
+
+    // Get the comment from instagram_comments table
+    const { data: comment, error: commentError } = await supabase
+      .from('instagram_comments')
+      .select('*')
+      .eq('id', commentId)
+      .eq('user_id', userId)
+      .single();
+
+    if (commentError || !comment) {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+
+    // Check if already saved as testimonial
+    if (comment.is_saved_as_testimonial) {
+      return res.status(400).json({ error: 'Comment already saved as testimonial' });
+    }
+
+    // Get the import record for additional context
+    const { data: importRecord, error: importError } = await supabase
+      .from('instagram_imports')
+      .select('url')
+      .eq('id', comment.import_id)
+      .single();
+
+    if (importError || !importRecord) {
+      return res.status(404).json({ error: 'Import record not found' });
+    }
+
+    // Create testimonial from comment
+    const testimonialData = {
+      user_id: userId,
+      client_name: comment.username,
+      client_email: `${comment.username}@instagram.com`,
+      content: comment.message,
+      rating: 5, // Default rating for Instagram comments
+      source: 'instagram',
+      status: 'pending',
+      instagram_data: {
+        comment_id: comment.comment_id,
+        username: comment.username,
+        profile_image: comment.profile_image,
+        is_verified: comment.is_verified,
+        like_count: comment.like_count,
+        reply_count: comment.reply_count,
+        created_at: comment.comment_created_at,
+        post_url: importRecord.url
+      }
+    };
+
+    const { data: testimonial, error: testimonialError } = await supabase
+      .from('testimonials')
+      .insert(testimonialData)
+      .select()
+      .single();
+
+    if (testimonialError) {
+      console.error('Error saving testimonial:', testimonialError);
+      throw testimonialError;
+    }
+
+    // Update the comment to mark it as saved
+    const { error: updateError } = await supabase
+      .from('instagram_comments')
+      .update({
+        is_saved_as_testimonial: true,
+        testimonial_id: testimonial.id
+      })
+      .eq('id', commentId);
+
+    if (updateError) {
+      console.error('Error updating comment status:', updateError);
+      // Don't throw here, testimonial was created successfully
+    }
+
+    res.json({
+      success: true,
+      testimonial: testimonial,
+      comment: comment
+    });
+
+  } catch (error) {
+    console.error('Error in save comment endpoint:', error);
+    res.status(500).json({ 
+      error: error.message || 'Internal server error' 
+    });
+  }
+});
+
+// Delete Instagram import and its comments
+app.delete('/api/instagram/imports/:importId', async (req, res) => {
+  try {
+    const { importId } = req.params;
+    const userId = req.headers['x-user-id'];
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User ID required' });
+    }
+
+    // Verify the import belongs to the user
+    const { data: importRecord, error: importError } = await supabase
+      .from('instagram_imports')
+      .select('id')
+      .eq('id', importId)
+      .eq('user_id', userId)
+      .single();
+
+    if (importError || !importRecord) {
+      return res.status(404).json({ error: 'Import not found' });
+    }
+
+    // Delete the import (comments will be deleted automatically due to CASCADE)
+    const { error: deleteError } = await supabase
+      .from('instagram_imports')
+      .delete()
+      .eq('id', importId)
+      .eq('user_id', userId);
+
+    if (deleteError) {
+      console.error('Error deleting import:', deleteError);
+      throw deleteError;
+    }
+
+    res.json({ success: true });
+
+  } catch (error) {
+    console.error('Error deleting Instagram import:', error);
     res.status(500).json({ 
       error: error.message || 'Internal server error' 
     });
@@ -559,6 +763,10 @@ app.get('*', (req, res) => {
 
 // === SERVER STARTUP ===
 
+// Export the Express app for use as middleware
+export default app;
+
+// Always start the server when this file is executed directly
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);

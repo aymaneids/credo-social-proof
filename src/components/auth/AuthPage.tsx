@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { Eye, EyeOff, Mail, Lock, User, Building, ArrowRight, Sparkles, Loader, CheckCircle, XCircle } from 'lucide-react';
+import { Eye, EyeOff, Loader, CheckCircle, XCircle } from 'lucide-react';
 import { checkUsernameAvailability, validateUsernameFormat } from '../../lib/supabase';
 
 const AuthPage: React.FC = () => {
@@ -124,163 +124,117 @@ const AuthPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 bg-grid-slate-900/[0.04] bg-[length:75px_75px]"></div>
-      
-      <div className="relative w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8 animate-fade-in">
-          <div className="inline-flex items-center space-x-2 mb-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-lg">C</span>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Left Panel - Form */}
+      <div className="flex-1 flex items-center justify-center p-8 lg:p-12">
+        <div className="w-full max-w-md">
+          {/* Logo */}
+          <div className="mb-8">
+            <div className="inline-flex items-center space-x-2 mb-8">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">C</span>
+              </div>
+              <span className="text-lg font-semibold text-gray-900">Credo</span>
             </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">Credo</span>
+            
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">
+              {isLogin ? 'Holla,\nWelcome Back' : 'Holla,\nGet Started'}
+            </h1>
+            <p className="text-gray-600 text-base">
+              {isLogin ? 'Hey, welcome back to your testimonial space' : 'Create your account and start collecting amazing testimonials'}
+            </p>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {isLogin ? 'Welcome back' : 'Get started'}
-          </h1>
-          <p className="text-gray-600">
-            {isLogin ? 'Sign in to your account' : 'Create your account and start collecting testimonials'}
-          </p>
-        </div>
 
-        {/* Auth Form */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl border border-white/20 animate-slide-up">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Sign Up Fields */}
-            {!isLogin && (
-              <div className="grid grid-cols-2 gap-4 animate-slide-in">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    First Name
-                  </label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+          {/* Auth Form */}
+          <div className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Sign Up Fields - Only show when signing up */}
+              {!isLogin && (
+                <>
+                  {/* Name Fields */}
+                  <div className="grid grid-cols-2 gap-4">
                     <input
                       type="text"
                       name="firstName"
                       value={formData.firstName}
                       onChange={handleInputChange}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                      placeholder="John"
+                      className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900 placeholder-gray-500"
+                      placeholder="First Name"
                       required={!isLogin}
                     />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Last Name
-                  </label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <input
                       type="text"
                       name="lastName"
                       value={formData.lastName}
                       onChange={handleInputChange}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                      placeholder="Doe"
+                      className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900 placeholder-gray-500"
+                      placeholder="Last Name"
                       required={!isLogin}
                     />
                   </div>
-                </div>
-              </div>
-            )}
-
-            {!isLogin && (
-              <div className="animate-slide-in" style={{ animationDelay: '200ms' }}>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Username
-                </label>
-                <p className="text-xs text-gray-500 mb-2">
-                  This will be your unique URL. Use only lowercase letters, numbers, and hyphens (e.g., acme-corp).
-                </p>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input
-                    type="text"
-                    name="username"
-                    value={formData.username}
-                    onChange={handleUsernameChange}
-                    className="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                    placeholder="your-username"
-                    required={!isLogin}
-                  />
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                    {usernameStatus.checking && <Loader className="w-4 h-4 text-gray-400 animate-spin" />}
-                    {!usernameStatus.checking && usernameStatus.available === true && <CheckCircle className="w-4 h-4 text-green-500" />}
-                    {!usernameStatus.checking && usernameStatus.available === false && <XCircle className="w-4 h-4 text-red-500" />}
+                  
+                  {/* Username */}
+                  <div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        name="username"
+                        value={formData.username}
+                        onChange={handleUsernameChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900 placeholder-gray-500 pr-12"
+                        placeholder="Username"
+                        required={!isLogin}
+                      />
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        {usernameStatus.checking && <Loader className="w-4 h-4 text-gray-400 animate-spin" />}
+                        {!usernameStatus.checking && usernameStatus.available === true && <CheckCircle className="w-4 h-4 text-green-500" />}
+                        {!usernameStatus.checking && usernameStatus.available === false && <XCircle className="w-4 h-4 text-red-500" />}
+                      </div>
+                    </div>
+                    {usernameStatus.message && (
+                      <p className={`text-xs mt-1 ${
+                        usernameStatus.available === true ? 'text-green-600' : 
+                        usernameStatus.available === false ? 'text-red-600' : 'text-gray-500'
+                      }`}>
+                        {usernameStatus.message}
+                      </p>
+                    )}
                   </div>
-                </div>
-                {usernameStatus.message && (
-                  <p className={`text-xs mt-1 ${
-                    usernameStatus.available === true ? 'text-green-600' : 
-                    usernameStatus.available === false ? 'text-red-600' : 'text-gray-500'
-                  }`}>
-                    {usernameStatus.message}
-                  </p>
-                )}
-                {formData.username && (
-                  <p className="text-xs text-blue-600 mt-1">
-                    Your links will be: <span className="font-mono">credo.app/c/{formData.username}/link-name</span>
-                  </p>
-                )}
-              </div>
-            )}
-
-            {!isLogin && (
-              <div className="animate-slide-in" style={{ animationDelay: '100ms' }}>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Company (Optional)
-                </label>
-                <div className="relative">
-                  <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  
+                  {/* Company */}
                   <input
                     type="text"
                     name="company"
                     value={formData.company}
                     onChange={handleInputChange}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                    placeholder="Acme Inc."
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900 placeholder-gray-500"
+                    placeholder="Company (Optional)"
                   />
-                </div>
-              </div>
-            )}
+                </>
+              )}
 
-            {/* Email */}
-            <div className="animate-slide-in" style={{ animationDelay: isLogin ? '0ms' : '200ms' }}>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              {/* Email */}
+              <div>
                 <input
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900 placeholder-gray-500"
                   placeholder="john@example.com"
                   required
                 />
               </div>
-            </div>
 
-            {/* Password */}
-            <div className="animate-slide-in" style={{ animationDelay: isLogin ? '100ms' : '300ms' }}>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Password
-              </label>
+              {/* Password */}
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   name="password"
                   value={formData.password}
                   onChange={handleInputChange}
-                  className="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                  placeholder="••••••••"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900 placeholder-gray-500 pr-12"
+                  placeholder="••••••••••••••"
                   required
                 />
                 <button
@@ -291,77 +245,146 @@ const AuthPage: React.FC = () => {
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
-            </div>
 
-            {/* Error Message */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4 animate-slide-in">
-                <p className="text-red-700 text-sm">{error}</p>
+              {/* Remember Me & Forgot Password */}
+              {isLogin && (
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center space-x-2">
+                    <input type="checkbox" className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
+                    <span className="text-sm text-gray-700">Remember me</span>
+                  </label>
+                  <button type="button" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                    Forgot Password?
+                  </button>
+                </div>
+              )}
+
+              {/* Error Message */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-red-700 text-sm">{error}</p>
+                </div>
+              )}
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={loading || (!isLogin && usernameStatus.available === false && !!formData.username)}
+                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white py-3 px-6 rounded-lg font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              >
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                ) : (
+                  <span>{isLogin ? 'Sign In' : 'Sign Up'}</span>
+                )}
+              </button>
+
+              {/* Toggle Auth Mode */}
+              <div className="text-center">
+                <p className="text-gray-600">
+                  {isLogin ? "Don't have an account?" : "Already have an account?"}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsLogin(!isLogin);
+                      setError('');
+                      setFormData({
+                        email: '',
+                        password: '',
+                        firstName: '',
+                        lastName: '',
+                        company: '',
+                        username: ''
+                      });
+                      setUsernameStatus({ checking: false, available: null, message: '' });
+                    }}
+                    className="ml-2 text-blue-600 hover:text-blue-700 font-semibold transition-colors"
+                  >
+                    {isLogin ? 'Sign Up' : 'Sign In'}
+                  </button>
+                </p>
               </div>
-            )}
-
-            {/* Submit Button */}
-            {/* Submit Button */}
-<button
-    disabled={loading}
-    className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-200 hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center space-x-2 animate-slide-in"
-    style={{ animationDelay: isLogin ? '200ms' : '400ms' }}
->
-    {loading ? (
-        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-    ) : (
-        <>
-            <span>{isLogin ? 'Sign In' : 'Create Account'}</span>
-            <ArrowRight className="w-5 h-5" />
-        </>
-    )}
-</button>
-
-            {/* Toggle Auth Mode */}
-            <div className="text-center animate-slide-in" style={{ animationDelay: isLogin ? '300ms' : '500ms' }}>
-              <p className="text-gray-600">
-                {isLogin ? "Don't have an account?" : "Already have an account?"}
-                <button
-    type="button"
-    onClick={() => {
-        setIsLogin(!isLogin);
-        setError('');
-        setFormData({
-            email: '',
-            password: '',
-            firstName: '',
-            lastName: '',
-            company: '',
-            username: '' // <-- Add this to clear the username
-        });
-        // Add this to clear the username availability message
-        setUsernameStatus({ checking: false, available: null, message: '' });
-    }}
-    className="ml-2 text-blue-600 hover:text-blue-700 font-semibold transition-colors"
->
-    {isLogin ? 'Sign up' : 'Sign in'}
-</button>
-              </p>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
+      </div>
 
-        {/* Features Preview */}
-        <div className="mt-8 text-center animate-fade-in" style={{ animationDelay: '600ms' }}>
-          <div className="flex items-center justify-center space-x-6 text-sm text-gray-600">
-            <div className="flex items-center space-x-2">
-              <Sparkles className="w-4 h-4 text-blue-500" />
-              <span>Easy Setup</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Sparkles className="w-4 h-4 text-green-500" />
-              <span>Auto Collection</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Sparkles className="w-4 h-4 text-purple-500" />
-              <span>Beautiful Widgets</span>
+      {/* Right Panel - Illustration */}
+      <div className="hidden lg:flex flex-1 items-center justify-center bg-gradient-to-br from-purple-500 to-blue-600 relative overflow-hidden">
+        {/* Background Elements */}
+        <div className="absolute inset-0">
+          {/* Clouds */}
+          <div className="absolute top-20 left-20 w-24 h-12 bg-white/20 rounded-full blur-sm"></div>
+          <div className="absolute top-32 left-32 w-16 h-8 bg-white/15 rounded-full blur-sm"></div>
+          <div className="absolute top-40 right-32 w-20 h-10 bg-white/20 rounded-full blur-sm"></div>
+          <div className="absolute bottom-32 left-24 w-18 h-9 bg-white/15 rounded-full blur-sm"></div>
+          <div className="absolute bottom-20 right-20 w-22 h-11 bg-white/20 rounded-full blur-sm"></div>
+          
+          {/* Security Lock */}
+          <div className="absolute bottom-32 right-32 w-16 h-20 bg-white/10 rounded-lg flex items-end justify-center pb-2">
+            <div className="w-6 h-3 bg-yellow-400 rounded-sm"></div>
+          </div>
+          
+          {/* Check Circle */}
+          <div className="absolute top-48 left-48 w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+            <div className="w-6 h-6 bg-green-400 rounded-full flex items-center justify-center">
+              <div className="w-3 h-3 border-2 border-white border-l-0 border-t-0 rotate-45 translate-y-[-1px]"></div>
             </div>
           </div>
+        </div>
+
+        {/* Main Illustration */}
+        <div className="relative z-10 flex items-center justify-center">
+          {/* Phone/Device */}
+          <div className="relative">
+            <div className="w-64 h-96 bg-gradient-to-br from-purple-400 to-pink-400 rounded-3xl p-4 shadow-2xl transform rotate-12">
+              <div className="w-full h-full bg-white/10 rounded-2xl flex flex-col items-center justify-center space-y-4">
+                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
+                  <div className="w-8 h-8 bg-white rounded-full"></div>
+                </div>
+                <div className="space-y-2">
+                  <div className="w-32 h-3 bg-white/30 rounded"></div>
+                  <div className="w-24 h-3 bg-white/20 rounded"></div>
+                </div>
+                <div className="w-20 h-8 bg-white/30 rounded-lg"></div>
+              </div>
+            </div>
+            
+            {/* Person Character */}
+            <div className="absolute -bottom-32 -left-16 z-20">
+              {/* Person Body */}
+              <div className="relative">
+                {/* Head */}
+                <div className="w-12 h-12 bg-yellow-600 rounded-full mb-2 mx-auto"></div>
+                
+                {/* Body */}
+                <div className="w-16 h-20 bg-yellow-500 rounded-t-full relative">
+                  {/* Arms */}
+                  <div className="absolute -left-2 top-2 w-8 h-3 bg-yellow-500 rounded-full transform -rotate-45"></div>
+                  <div className="absolute -right-2 top-2 w-8 h-3 bg-yellow-500 rounded-full transform rotate-45"></div>
+                </div>
+                
+                {/* Legs */}
+                <div className="flex justify-center space-x-1">
+                  <div className="w-3 h-12 bg-blue-800 rounded-b-full"></div>
+                  <div className="w-3 h-12 bg-blue-800 rounded-b-full"></div>
+                </div>
+                
+                {/* Shoes */}
+                <div className="flex justify-center space-x-1 -mt-1">
+                  <div className="w-4 h-3 bg-gray-800 rounded-full"></div>
+                  <div className="w-4 h-3 bg-gray-800 rounded-full"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Bottom Text */}
+        <div className="absolute bottom-8 left-8 right-8 text-center">
+          <p className="text-white/80 text-sm">
+            "Collecting testimonials has never been easier. Our platform helps you build trust with authentic customer feedback."
+          </p>
         </div>
       </div>
     </div>

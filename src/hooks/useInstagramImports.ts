@@ -18,13 +18,18 @@ export interface InstagramImport {
 
 export interface InstagramComment {
   id: string;
+  import_id: string;
+  comment_id: string;
   username: string;
   message: string;
-  likeCount: number;
-  replyCount: number;
-  isVerified: boolean;
-  profileImage: string;
-  createdAt: string;
+  like_count: number;
+  reply_count: number;
+  is_verified: boolean;
+  profile_image: string;
+  comment_created_at: string;
+  scraped_at: string;
+  is_saved_as_testimonial: boolean;
+  testimonial_id?: string;
 }
 
 export interface ScrapeResult {
@@ -32,7 +37,7 @@ export interface ScrapeResult {
   totalFound: number;
   saved: number;
   errors: string[];
-  comments: InstagramComment[];
+  importId: string;
 }
 
 export const useInstagramImports = () => {
@@ -135,11 +140,99 @@ export const useInstagramImports = () => {
     }
   };
 
+  const getCommentsForImport = async (importId: string): Promise<InstagramComment[]> => {
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    try {
+      const response = await fetch(`/api/instagram/comments/${importId}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch comments');
+      }
+
+      const result = await response.json();
+      return result.comments || [];
+    } catch (error) {
+      console.error('Error fetching comments for import:', error);
+      throw error;
+    }
+  };
+
+  const saveCommentAsTestimonial = async (commentId: string) => {
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    try {
+      const response = await fetch('/api/instagram/save-comment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id
+        },
+        body: JSON.stringify({
+          commentId
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save comment');
+      }
+
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('Error saving comment as testimonial:', error);
+      throw error;
+    }
+  };
+
+  const deleteImport = async (importId: string) => {
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    try {
+      const response = await fetch(`/api/instagram/imports/${importId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete import');
+      }
+
+      // Refresh imports list
+      await fetchImports();
+
+      return true;
+    } catch (error) {
+      console.error('Error deleting import:', error);
+      throw error;
+    }
+  };
+
   return {
     imports,
     loading,
     scraping,
     scrapeInstagramPost,
+    getCommentsForImport,
+    saveCommentAsTestimonial,
+    deleteImport,
     refetch: fetchImports
   };
 };

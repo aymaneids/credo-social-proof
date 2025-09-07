@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Instagram, Plus, Download, Filter, Eye, MessageSquare, ExternalLink, Trash2, BarChart3, TrendingUp, Users, Heart, ChevronDown, ChevronUp, Loader, CheckCircle, XCircle, Sparkles, Star, User, ThumbsUp, MessageCircle } from 'lucide-react';
-import { useInstagramImports, InstagramComment } from '../../hooks/useInstagramImports';
+import { Instagram, Plus, Download, Filter, Eye, MessageSquare, ExternalLink, Trash2, BarChart3, TrendingUp, Users, Heart, ChevronDown, ChevronUp, Loader, CheckCircle, XCircle, Sparkles, Star, User, ThumbsUp, MessageCircle, Send, X, AlertCircle, Calendar, Clock } from 'lucide-react';
+import { useInstagramImports, InstagramComment, InstagramImport } from '../../hooks/useInstagramImports';
 
 const InstagramImports: React.FC = () => {
   const [showAddForm, setShowAddForm] = useState(false);
@@ -10,11 +10,63 @@ const InstagramImports: React.FC = () => {
   const [useAI, setUseAI] = useState(false);
   const [expandedImport, setExpandedImport] = useState<string | null>(null);
   const [expandedComments, setExpandedComments] = useState<string | null>(null);
-  const [lastScrapeResult, setLastScrapeResult] = useState<InstagramComment[] | null>(null);
+  const [commentsData, setCommentsData] = useState<{ [importId: string]: InstagramComment[] }>({});
+  const [loadingComments, setLoadingComments] = useState<{ [importId: string]: boolean }>({});
+  const [savingComments, setSavingComments] = useState<Set<string>>(new Set());
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+  const [duplicateUrl, setDuplicateUrl] = useState('');
+  const [existingImports, setExistingImports] = useState<InstagramImport[]>([]);
 
-  const { imports, loading, scraping, scrapeInstagramPost, refetch } = useInstagramImports();
+  const { imports, loading, scraping, scrapeInstagramPost, getCommentsForImport, saveCommentAsTestimonial, deleteImport, refetch } = useInstagramImports();
+
+  // Extract Instagram post ID from URL
+  const extractInstagramPostId = (url: string): string | null => {
+    try {
+      const patterns = [
+        /instagram\.com\/p\/([A-Za-z0-9_-]+)/,
+        /instagram\.com\/reel\/([A-Za-z0-9_-]+)/,
+        /instagram\.com\/tv\/([A-Za-z0-9_-]+)/
+      ];
+      
+      for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match) {
+          return match[1];
+        }
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
 
   const handleScrapePost = async () => {
+    if (!urlInput.trim()) return;
+
+    // Extract post ID from the input URL
+    const postId = extractInstagramPostId(urlInput.trim());
+    if (!postId) {
+      alert('Invalid Instagram URL format. Please use a direct link to an Instagram post.');
+      return;
+    }
+
+    // Check for duplicate post IDs (same post, different URL formats)
+    const existingImportsForPost = imports.filter(imp => {
+      const existingPostId = extractInstagramPostId(imp.url);
+      return existingPostId === postId;
+    });
+
+    if (existingImportsForPost.length > 0) {
+      setDuplicateUrl(urlInput.trim());
+      setExistingImports(existingImportsForPost);
+      setShowDuplicateDialog(true);
+      return;
+    }
+
+    await performScraping();
+  };
+
+  const performScraping = async (forceRescan = false) => {
     if (!urlInput.trim()) return;
 
     try {
@@ -25,24 +77,99 @@ const InstagramImports: React.FC = () => {
         useAI
       );
 
-      setLastScrapeResult(result.comments);
       setUrlInput('');
       setTitleInput('');
       setShowAddForm(false);
+      setShowDuplicateDialog(false);
       
-      // Show success message or handle result
-      console.log('Scrape completed:', result);
+      // Automatically load comments for the new import
+      if (result.importId) {
+        await loadCommentsForImport(result.importId);
+        setExpandedComments(result.importId);
+      }
     } catch (error) {
       console.error('Error scraping Instagram post:', error);
       alert(error instanceof Error ? error.message : 'Failed to scrape Instagram post');
     }
   };
 
+  const loadCommentsForImport = async (importId: string) => {
+    setLoadingComments(prev => ({ ...prev, [importId]: true }));
+    
+    try {
+      const comments = await getCommentsForImport(importId);
+      setCommentsData(prev => ({ ...prev, [importId]: comments }));
+    } catch (error) {
+      console.error('Error loading comments:', error);
+    } finally {
+      setLoadingComments(prev => ({ ...prev, [importId]: false }));
+    }
+  };
+
+  const handleSaveComment = async (commentId: string, importId: string) => {
+    setSavingComments(prev => new Set(prev).add(commentId));
+    
+    try {
+      await saveCommentAsTestimonial(commentId);
+      
+      // Update the comment in local state
+      setCommentsData(prev => ({
+        ...prev,
+        [importId]: prev[importId]?.map(comment => 
+          comment.id === commentId 
+            ? { ...comment, is_saved_as_testimonial: true }
+            : comment
+        ) || []
+      }));
+    } catch (error) {
+      console.error('Error saving comment:', error);
+      alert('Failed to save comment as testimonial');
+    } finally {
+      setSavingComments(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(commentId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleDeleteImport = async (importId: string) => {
+    if (!confirm('Are you sure you want to delete this import? This will also delete all associated comments.')) {
+      return;
+    }
+
+    try {
+      await deleteImport(importId);
+      // Remove from local state
+      setCommentsData(prev => {
+        const newData = { ...prev };
+        delete newData[importId];
+        return newData;
+      });
+      setExpandedComments(null);
+      setExpandedImport(null);
+    } catch (error) {
+      console.error('Error deleting import:', error);
+      alert('Failed to delete import');
+    }
+  };
+
+  const toggleComments = async (importId: string) => {
+    if (expandedComments === importId) {
+      setExpandedComments(null);
+    } else {
+      setExpandedComments(importId);
+      if (!commentsData[importId]) {
+        await loadCommentsForImport(importId);
+      }
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const configs = {
       completed: { color: 'bg-green-100 text-green-800 border-green-200', label: 'Completed', icon: CheckCircle },
-      processing: { color: 'bg-blue-100 text-blue-800 border-blue-200', label: 'Processing' },
-      pending: { color: 'bg-amber-100 text-amber-800 border-amber-200', label: 'Pending', icon: Loader },
+      processing: { color: 'bg-blue-100 text-blue-800 border-blue-200', label: 'Processing', icon: Loader },
+      pending: { color: 'bg-amber-100 text-amber-800 border-amber-200', label: 'Pending', icon: Clock },
       failed: { color: 'bg-red-100 text-red-800 border-red-200', label: 'Failed', icon: XCircle }
     };
     return configs[status as keyof typeof configs] || configs.pending;
@@ -50,10 +177,6 @@ const InstagramImports: React.FC = () => {
 
   const toggleImportDetails = (importId: string) => {
     setExpandedImport(expandedImport === importId ? null : importId);
-  };
-
-  const toggleComments = (importId: string) => {
-    setExpandedComments(expandedComments === importId ? null : importId);
   };
 
   if (loading) {
@@ -93,8 +216,8 @@ const InstagramImports: React.FC = () => {
         {[
           { label: 'Total Imports', value: imports.length.toString(), icon: Instagram, color: 'pink' },
           { label: 'Comments Found', value: imports.reduce((sum, imp) => sum + imp.total_comments_found, 0).toString(), icon: MessageSquare, color: 'green' },
-          { label: 'Testimonials Saved', value: imports.reduce((sum, imp) => sum + imp.comments_saved, 0).toString(), icon: CheckCircle, color: 'blue' },
-          { label: 'This Month', value: imports.filter(imp => imp.created_at.startsWith('2025-01')).length.toString(), icon: Download, color: 'purple' }
+          { label: 'Comments Stored', value: imports.reduce((sum, imp) => sum + imp.comments_saved, 0).toString(), icon: Download, color: 'blue' },
+          { label: 'This Month', value: imports.filter(imp => imp.created_at.startsWith('2025-01')).length.toString(), icon: Calendar, color: 'purple' }
         ].map((stat, index) => {
           const IconComponent = stat.icon;
           return (
@@ -210,9 +333,11 @@ const InstagramImports: React.FC = () => {
             <h4 className="font-semibold text-blue-900 mb-2">How it works:</h4>
             <ul className="text-sm text-blue-800 space-y-1">
               <li>• We use Apify to extract real comments from the Instagram post</li>
-              <li>• Comments are automatically converted to testimonials</li>
+              <li>• Comments are saved for review and can be individually selected</li>
               <li>• AI filtering helps identify the most valuable feedback</li>
-              <li>• All testimonials require your approval before going live</li>
+              <li>• Click "View Comments" to see all scraped comments</li>
+              <li>• Manually save individual comments as testimonials</li>
+              <li>• You can rescan the same URL multiple times to catch new comments</li>
               <li>• Processing typically takes 30-60 seconds depending on comment count</li>
             </ul>
           </div>
@@ -231,49 +356,105 @@ const InstagramImports: React.FC = () => {
         </div>
       )}
 
-      {/* Last Scrape Results */}
-      {lastScrapeResult && lastScrapeResult.length > 0 && (
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20 animate-slide-up">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
-              <CheckCircle className="w-5 h-5 text-green-600" />
-              <span>Latest Scrape Results</span>
-            </h3>
-            <span className="text-sm text-gray-500">{lastScrapeResult.length} comments found</span>
-          </div>
-          
-          <div className="grid gap-4 max-h-96 overflow-y-auto">
-            {lastScrapeResult.map((comment, index) => (
-              <div key={comment.id} className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-lg p-4 border border-pink-200">
-                <div className="flex items-start space-x-3">
-                  <img
-                    src={comment.profileImage}
-                    alt={comment.username}
-                    className="w-10 h-10 rounded-full border-2 border-white shadow-md"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-2 mb-1">
-                      <span className="font-semibold text-gray-900">{comment.username}</span>
-                      {comment.isVerified && (
-                        <CheckCircle className="w-4 h-4 text-blue-500" />
-                      )}
-                    </div>
-                    <p className="text-gray-700 text-sm leading-relaxed mb-2">{comment.message}</p>
-                    <div className="flex items-center space-x-4 text-xs text-gray-500">
-                      <div className="flex items-center space-x-1">
-                        <ThumbsUp className="w-3 h-3" />
-                        <span>{comment.likeCount}</span>
+      {/* Duplicate URL Confirmation Dialog */}
+      {showDuplicateDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl animate-slide-up">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
+                <AlertCircle className="w-6 h-6 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Post Already Scanned</h3>
+                <p className="text-sm text-gray-600">This Instagram post ID has been scanned before</p>
+              </div>
+            </div>
+            
+            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-700 mb-2"><strong>Post ID:</strong> {extractInstagramPostId(duplicateUrl)}</p>
+              <p className="text-sm text-gray-700 mb-2"><strong>New URL:</strong></p>
+              <p className="text-xs font-mono bg-gray-100 p-2 rounded break-all">{duplicateUrl}</p>
+              
+              {existingImports.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-sm text-gray-700 mb-2"><strong>Previous Scans ({existingImports.length}):</strong></p>
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {existingImports.map((imp, idx) => (
+                      <div key={imp.id} className="text-xs text-gray-600 bg-white p-2 rounded border">
+                        <p>• <strong>Scan #{idx + 1}:</strong> {imp.title}</p>
+                        <p>• <strong>Max Requested:</strong> {imp.max_comments_requested} comments</p>
+                        <p>• <strong>Actually Found:</strong> {imp.total_comments_found} comments</p>
+                        <p>• <strong>Successfully Saved:</strong> {imp.comments_saved} comments</p>
+                        <p>• <strong>Date:</strong> {new Date(imp.created_at).toLocaleDateString()}</p>
                       </div>
-                      <div className="flex items-center space-x-1">
-                        <MessageCircle className="w-3 h-3" />
-                        <span>{comment.replyCount}</span>
-                      </div>
-                      <span>{new Date(comment.createdAt).toLocaleDateString()}</span>
-                    </div>
+                    ))}
                   </div>
                 </div>
+              )}
+            </div>
+            
+            <div className="space-y-3">
+              <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <h4 className="font-semibold text-blue-900 text-sm mb-1">What would you like to do?</h4>
+                <ul className="text-xs text-blue-800 space-y-1">
+                  <li>• <strong>View Existing:</strong> See comments from previous scans</li>
+                  <li>• <strong>Scan Again:</strong> Get fresh comments with your current limit ({maxComments})</li>
+                  <li>• <strong>Note:</strong> All {maxComments} comments will be saved, even if they're duplicates</li>
+                </ul>
               </div>
-            ))}
+            </div>
+            
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  if (existingImports.length > 0) {
+                    // Open the most recent scan by default
+                    const mostRecentImport = existingImports.sort((a, b) => 
+                      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                    )[0];
+                    setExpandedComments(mostRecentImport.id);
+                    if (!commentsData[mostRecentImport.id]) {
+                      loadCommentsForImport(mostRecentImport.id);
+                    }
+                  }
+                  setShowDuplicateDialog(false);
+                }}
+                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center space-x-2"
+              >
+                <Eye className="w-4 h-4" />
+                <span>View Latest Scan</span>
+              </button>
+              
+              <button
+                onClick={() => performScraping(true)}
+                disabled={scraping}
+                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              >
+                {scraping ? (
+                  <>
+                    <Loader className="w-4 h-4 animate-spin" />
+                    <span>Scanning...</span>
+                  </>
+                ) : (
+                  <>
+                    <Instagram className="w-4 h-4" />
+                    <span>Scan Again</span>
+                  </>
+                )}
+              </button>
+            </div>
+            
+            <button
+              onClick={() => {
+                setShowDuplicateDialog(false);
+                setDuplicateUrl('');
+                setExistingImports([]);
+              }}
+              className="w-full mt-3 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              disabled={scraping}
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}
@@ -282,6 +463,18 @@ const InstagramImports: React.FC = () => {
       <div className="space-y-4">
         {imports.map((importData, index) => {
           const statusBadge = getStatusBadge(importData.status);
+          const importComments = commentsData[importData.id] || [];
+          const savedCount = importComments.filter(c => c.is_saved_as_testimonial).length;
+          
+          // Check for duplicate post IDs
+          const currentPostId = extractInstagramPostId(importData.url);
+          const duplicateImports = imports.filter(imp => {
+            const impPostId = extractInstagramPostId(imp.url);
+            return impPostId === currentPostId;
+          });
+          const isDuplicate = duplicateImports.length > 1;
+          const duplicateIndex = duplicateImports.filter(imp => imp.created_at <= importData.created_at).length;
+          
           return (
             <div 
               key={importData.id} 
@@ -293,6 +486,11 @@ const InstagramImports: React.FC = () => {
                   <div className="flex items-center space-x-3 mb-2">
                     <Instagram className="w-5 h-5 text-pink-600" />
                     <h3 className="font-semibold text-gray-900">{importData.title}</h3>
+                    {isDuplicate && (
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700 border border-orange-200 flex items-center space-x-1">
+                        <span>Post ID: {currentPostId} (Scan #{duplicateIndex})</span>
+                      </span>
+                    )}
                     <span className={`px-3 py-1 rounded-full text-xs font-medium border ${statusBadge.color} flex items-center space-x-1`}>
                       {statusBadge.icon && <statusBadge.icon className="w-3 h-3" />}
                       <span>{statusBadge.label}</span>
@@ -321,20 +519,16 @@ const InstagramImports: React.FC = () => {
                       <span className="ml-2 font-semibold text-blue-600">{importData.total_comments_found}</span>
                     </div>
                     <div>
+                      <span className="text-gray-500">Comments Stored:</span>
+                      <span className="ml-2 font-semibold text-blue-600">{importData.comments_saved}</span>
+                    </div>
+                    <div>
                       <span className="text-gray-500">Saved as Testimonials:</span>
-                      <span className="ml-2 font-semibold text-green-600">{importData.comments_saved}</span>
+                      <span className="ml-2 font-semibold text-green-600">{savedCount}</span>
                     </div>
                     <div>
                       <span className="text-gray-500">Max Requested:</span>
                       <span className="ml-2 font-semibold">{importData.max_comments_requested}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Success Rate:</span>
-                      <span className="ml-2 font-semibold text-purple-600">
-                        {importData.total_comments_found > 0 
-                          ? Math.round((importData.comments_saved / importData.total_comments_found) * 100)
-                          : 0}%
-                      </span>
                     </div>
                   </div>
 
@@ -350,7 +544,7 @@ const InstagramImports: React.FC = () => {
                   {importData.status === 'completed' && importData.comments_saved > 0 && (
                     <button 
                       onClick={() => toggleComments(importData.id)}
-                      className="bg-pink-50 hover:bg-pink-100 text-pink-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors border border-pink-200 flex items-center space-x-1"
+                      className="bg-pink-50 hover:bg-pink-100 text-pink-700 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 hover:scale-105 border border-pink-200 flex items-center space-x-1"
                     >
                       <Eye className="w-4 h-4" />
                       <span>View Comments</span>
@@ -359,46 +553,120 @@ const InstagramImports: React.FC = () => {
                   )}
                   <button 
                     onClick={() => toggleImportDetails(importData.id)}
-                    className="bg-pink-50 hover:bg-pink-100 text-pink-700 px-3 py-2 rounded-lg text-sm font-semibold transition-colors border border-pink-200 flex items-center space-x-1"
+                    className="bg-pink-50 hover:bg-pink-100 text-pink-700 px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-200 hover:scale-105 border border-pink-200 flex items-center space-x-1"
                   >
                     <BarChart3 className="w-4 h-4" />
                     {expandedImport === importData.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                   </button>
+                  <button
+                    onClick={() => handleDeleteImport(importData.id)}
+                    className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-all duration-200"
+                    title="Delete import"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
 
-              {/* Expanded Import Details */}
-              {expandedImport === importData.id && (
+              {/* Expanded Comments Section */}
+              {expandedComments === importData.id && (
                 <div className="mt-4 pt-4 border-t border-gray-200 animate-slide-up">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="bg-pink-50 rounded-lg p-3 text-center border border-pink-200">
-                      <TrendingUp className="w-5 h-5 text-pink-600 mx-auto mb-1" />
-                      <div className="text-lg font-bold text-pink-900">
-                        {importData.total_comments_found > 0 
-                          ? Math.round((importData.comments_saved / importData.total_comments_found) * 100)
-                          : 0}%
-                      </div>
-                      <div className="text-xs text-pink-700">Success Rate</div>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h4 className="text-lg font-semibold text-gray-900">Comments from this Import</h4>
+                      {isDuplicate && (
+                        <p className="text-sm text-orange-600 mt-1">
+                          ℹ️ This is scan #{duplicateIndex} of this URL. Each scan may capture different comments.
+                        </p>
+                      )}
                     </div>
-                    
-                    <div className="bg-green-50 rounded-lg p-3 text-center border border-green-200">
-                      <MessageSquare className="w-5 h-5 text-green-600 mx-auto mb-1" />
-                      <div className="text-lg font-bold text-green-900">{importData.comments_saved}</div>
-                      <div className="text-xs text-green-700">Saved</div>
-                    </div>
-                    
-                    <div className="bg-blue-50 rounded-lg p-3 text-center border border-blue-200">
-                      <Eye className="w-5 h-5 text-blue-600 mx-auto mb-1" />
-                      <div className="text-lg font-bold text-blue-900">{importData.total_comments_found}</div>
-                      <div className="text-xs text-blue-700">Found</div>
-                    </div>
-                    
-                    <div className="bg-purple-50 rounded-lg p-3 text-center border border-purple-200">
-                      <Sparkles className="w-5 h-5 text-purple-600 mx-auto mb-1" />
-                      <div className="text-lg font-bold text-purple-900">{importData.use_ai_filter ? 'Yes' : 'No'}</div>
-                      <div className="text-xs text-purple-700">AI Filter</div>
+                    <div className="flex items-center space-x-4 text-sm">
+                      <span className="text-gray-500">{importComments.length} total comments</span>
+                      <span className="text-green-600 font-medium">{savedCount} saved as testimonials</span>
                     </div>
                   </div>
+                  
+                  {loadingComments[importData.id] ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="text-center">
+                        <div className="w-8 h-8 border-2 border-pink-200 border-t-pink-600 rounded-full animate-spin mx-auto mb-2"></div>
+                        <p className="text-gray-600">Loading comments...</p>
+                      </div>
+                    </div>
+                  ) : importComments.length > 0 ? (
+                    <div className="space-y-4 max-h-96 overflow-y-auto">
+                      {importComments.map((comment) => (
+                        <div key={comment.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                          <div className="flex items-start space-x-3">
+                            <img
+                              src={comment.profile_image || 'https://via.placeholder.com/40'}
+                              alt={comment.username}
+                              className="w-10 h-10 rounded-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.src = 'https://via.placeholder.com/40?text=' + (comment.username.charAt(0) || 'U');
+                              }}
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2 mb-2">
+                                <span className="font-semibold text-gray-900">{comment.username}</span>
+                                {comment.is_verified && (
+                                  <CheckCircle className="w-4 h-4 text-blue-500" />
+                                )}
+                                <span className="text-sm text-gray-500">
+                                  {new Date(comment.comment_created_at).toLocaleDateString()}
+                                </span>
+                              </div>
+                              <p className="text-gray-800 mb-3">{comment.message}</p>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-4 text-sm text-gray-500">
+                                  <span className="flex items-center space-x-1">
+                                    <Heart className="w-4 h-4" />
+                                    <span>{comment.like_count}</span>
+                                  </span>
+                                  <span className="flex items-center space-x-1">
+                                    <MessageCircle className="w-4 h-4" />
+                                    <span>{comment.reply_count}</span>
+                                  </span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  {comment.is_saved_as_testimonial ? (
+                                    <span className="flex items-center space-x-1 text-green-600 text-sm font-medium">
+                                      <CheckCircle className="w-4 h-4" />
+                                      <span>Saved as Testimonial</span>
+                                    </span>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleSaveComment(comment.id, importData.id)}
+                                      disabled={savingComments.has(comment.id)}
+                                      className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+                                    >
+                                      {savingComments.has(comment.id) ? (
+                                        <>
+                                          <Loader className="w-4 h-4 animate-spin" />
+                                          <span>Saving...</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Send className="w-4 h-4" />
+                                          <span>Save as Testimonial</span>
+                                        </>
+                                      )}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <MessageSquare className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                      <p className="text-lg font-medium">No comments found</p>
+                      <p className="text-sm">Comments from this import will appear here</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -424,7 +692,7 @@ const InstagramImports: React.FC = () => {
           </button>
         </div>
       )}
-    </div>
+    </div> 
   );
 };
 
