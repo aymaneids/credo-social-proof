@@ -1,0 +1,6 @@
+test-supabase.js
+find-credentials.js
+*.test.js
+*.spec.js
+*.test.ts
+*.spec.ts
